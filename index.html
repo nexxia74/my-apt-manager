@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단지별 독립 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 각 호수 카드 스타일 */
+        .unit-card { transition: all 0.2s; border-width: 2px; }
+        /* 검색 시 강조 효과 스타일 */
+        .highlight { 
+            background-color: #fef08a !important; 
+            border-color: #f59e0b !important; 
+            transform: scale(1.03); 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+        <h1 id="complexTitle" class="text-2xl font-bold text-blue-900 mb-4 text-center">단지 정보 불러오는 중...</h1>
+
+        <div class="bg-white p-4 rounded-xl shadow-md mb-6 sticky top-0 z-40 border-b-2 border-blue-500">
+            <input type="text" id="searchInput" placeholder="주민 이름 또는 호수 검색..." 
+                   class="w-full border-2 p-3 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none mb-3">
+            <div class="flex gap-2 justify-end">
+                <button onclick="addDongPrompt()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">동 추가</button>
+                <button onclick="deleteDongPrompt()" class="bg-gray-400 text-white px-4 py-2 rounded-lg text-sm">동 삭제</button>
+            </div>
+        </div>
+
+        <div id="apartmentContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4 text-blue-700">정보 수정</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">입주자 (소유주)</label>
+                    <input type="text" id="ownerInput" placeholder="이름을 입력하세요" class="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">세입자 및 구성원 (전체)</label>
+                    <textarea id="tenantInput" rows="4" placeholder="가족 구성원 전체 이름을 입력하세요" class="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-orange-300"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg">취소</button>
+                    <button id="saveBtn" onclick="saveData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">실시간 저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        /* ---------------------------------------------------------
+           1. Firebase 설정 (본인의 설정값으로 반드시 교체하세요!)
+        --------------------------------------------------------- */
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
+
+  authDomain: "apt-member-id.firebaseapp.com",
+1 
+  projectId: "apt-member-id",
+
+  storageBucket: "apt-member-id.firebasestorage.app",
+
+  messagingSenderId: "562369347279",
+
+  appId: "1:562369347279:web:fe0e203bef243bbdc801ba"
+
+};
+
+
+        // Firebase 라이브러리 로드
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        /* ---------------------------------------------------------
+           2. 독립 관리 핵심 로직: 주소창의 ?id=단지이름 값을 읽어옴
+        --------------------------------------------------------- */
+        const urlParams = new URLSearchParams(window.location.search);
+        const COMPLEX_ID = urlParams.get('id') || '미지정단지'; // ID가 없으면 '미지정단지'로 표시
+        document.getElementById('complexTitle').innerText = `🏢 ${COMPLEX_ID} 관리 명부`;
+
+        let currentTarget = { dong: '', ho: '' }; // 현재 클릭한 호수 정보 저장
+
+        // 해당 단지의 데이터를 실시간으로 감시하여 화면을 갱신함
+        onSnapshot(doc(db, "complexes", COMPLEX_ID), (snapshot) => {
+            const data = snapshot.data() || {};
+            renderUI(data);
+        });
+
+        /* ---------------------------------------------------------
+           3. 화면 렌더링 함수: 데이터를 바탕으로 동/호수 그림
+        --------------------------------------------------------- */
+        function renderUI(data) {
+            const container = document.getElementById('apartmentContainer');
+            container.innerHTML = '';
+            
+            // 동 번호 순서대로 정렬
+            const sortedDongs = Object.keys(data).sort((a, b) => a - b);
+            
+            if(sortedDongs.length === 0) {
+                container.innerHTML = '<p class="text-center col-span-full py-10 text-gray-400 font-bold">동이 없습니다. [동 추가]를 눌러주세요.</p>';
+            }
+
+            sortedDongs.forEach(dong => {
+                const dongDiv = document.createElement('div');
+                dongDiv.className = 'bg-white p-4 rounded-xl shadow-md border-t-4 border-blue-500';
+                dongDiv.innerHTML = `<h2 class="text-lg font-bold mb-3 border-b pb-2 text-blue-800">${dong}동</h2>`;
+                
+                const hoGrid = document.createElement('div');
+                hoGrid.className = 'grid grid-cols-2 gap-2';
+
+                // 호수 정렬하여 표시
+                Object.keys(data[dong]).sort((a, b) => a - b).forEach(ho => {
+                    const info = data[dong][ho];
+                    const hasTenant = info.tenant && info.tenant.trim() !== "";
+                    
+                    const unitDiv = document.createElement('div');
+                    unitDiv.id = `unit-${dong}-${ho}`;
+                    // 세입자 여부에 따라 색상 자동 변경
+                    unitDiv.className = `unit-card p-2 border rounded-lg cursor-pointer text-sm ${hasTenant ? 'border-orange-200 bg-orange-50' : 'border-blue-100 bg-blue-50'}`;
+                    
+                    unitDiv.onclick = () => openModal(dong, ho, info.owner, info.tenant);
+                    unitDiv.innerHTML = `
+                        <div class="font-bold text-gray-800">${ho}호</div>
+                        <div class="text-[11px] truncate"><span class="text-blue-600 font-bold">주:</span> ${info.owner || '-'}</div>
+                        <div class="text-[11px] truncate"><span class="text-orange-600 font-bold">세:</span> ${info.tenant || '-'}</div>
+                    `;
+                    hoGrid.appendChild(unitDiv);
+                });
+                dongDiv.appendChild(hoGrid);
+                container.appendChild(dongDiv);
+            });
+        }
+
+        /* ---------------------------------------------------------
+           4. 주요 기능 (검색, 수정, 추가, 삭제)
+        --------------------------------------------------------- */
+        
+        // 실시간 검색 기능 (단지 내 주민 모두 검색)
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const keyword = this.value.trim();
+            document.querySelectorAll('.unit-card').forEach(card => {
+                card.classList.toggle('highlight', keyword && card.innerText.includes(keyword));
+            });
+        });
+
+        // 수정 팝업 열기
+        window.openModal = (dong, ho, owner, tenant) => {
+            currentTarget = { dong, ho };
+            document.getElementById('modalTitle').innerText = `${dong}동 ${ho}호 수정`;
+            document.getElementById('ownerInput').value = owner || '';
+            document.getElementById('tenantInput').value = tenant || '';
+            document.getElementById('editModal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => document.getElementById('editModal').classList.add('hidden');
+
+        // 데이터 저장 (Firebase에 해당 단지 폴더로 전송)
+        window.saveData = async () => {
+            const owner = document.getElementById('ownerInput').value;
+            const tenant = document.getElementById('tenantInput').value;
+            
+            // COMPLEX_ID 문서 안의 해당 동/호수 데이터만 병합(merge) 저장
+            await setDoc(doc(db, "complexes", COMPLEX_ID), { 
+                [currentTarget.dong]: { [currentTarget.ho]: { owner, tenant } } 
+            }, { merge: true });
+            
+            closeModal();
+        };
+
+        // 동 추가 (기본 10개 호수 생성)
+        window.addDongPrompt = async () => {
+            const dongName = prompt("추가할 동 번호를 입력하세요 (예: 101)");
+            if (!dongName) return;
+            const initialHo = {};
+            for(let i=1; i<=10; i++) initialHo[i] = { owner: "", tenant: "" };
+            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: initialHo }, { merge: true });
+        };
+
+        // 동 삭제 (보안을 위해 한 번 더 확인)
+        window.deleteDongPrompt = async () => {
+            const dongName = prompt("삭제할 동 번호를 정확히 입력하세요");
+            if (!dongName) return;
+            if(confirm(`${dongName}동의 모든 데이터가 삭제됩니다. 계속하시겠습니까?`)) {
+                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: deleteField() });
+            }
+        };
+    </script>
+</body>
+</html>
