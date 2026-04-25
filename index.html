@@ -170,23 +170,31 @@
             closeModal();
         };
 
-        // 동 추가 (기본 10개 호수 생성)
-        window.addDongPrompt = async () => {
-            const dongName = prompt("추가할 동 번호를 입력하세요 (예: 101)");
-            if (!dongName) return;
-            const initialHo = {};
-            for(let i=1; i<=10; i++) initialHo[i] = { owner: "", tenant: "" };
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: initialHo }, { merge: true });
-        };
+        // 동 추가 (호수 범위를 입력받아 유연하게 생성)
+window.addDongPrompt = async () => {
+    const dongName = prompt("추가할 동 번호를 입력하세요 (예: 101)");
+    if (!dongName) return;
 
-        // 동 삭제 (보안을 위해 한 번 더 확인)
-        window.deleteDongPrompt = async () => {
-            const dongName = prompt("삭제할 동 번호를 정확히 입력하세요");
-            if (!dongName) return;
-            if(confirm(`${dongName}동의 모든 데이터가 삭제됩니다. 계속하시겠습니까?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: deleteField() });
-            }
-        };
+    const lastHo = prompt("이 동의 마지막 호수를 숫자로 입력하세요 (예: 15)", "10");
+    if (!lastHo || isNaN(lastHo)) {
+        alert("숫자만 입력 가능합니다.");
+        return;
+    }
+
+    const initialHo = {};
+    // 입력한 숫자만큼 유연하게 반복문 실행
+    for(let i = 1; i <= parseInt(lastHo); i++) {
+        initialHo[i] = { owner: "", tenant: "" }; 
+    }
+
+    try {
+        await setDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: initialHo }, { merge: true });
+        alert(`${dongName}동(1~${lastHo}호)이 생성되었습니다.`);
+    } catch (e) {
+        console.error("저장 실패:", e);
+        alert("데이터베이스 저장에 실패했습니다. 규칙 설정을 확인하세요.");
+    }
+};
     </script>
 </body>
 </html>
