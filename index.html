@@ -1,257 +1,141 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>단지 관리 시스템</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <style>
-        .unit-card { transition: all 0.2s; border-width: 2px; min-height: 100px; }
-        .highlight { 
-            background-color: #fef08a !important; 
-            border-color: #f59e0b !important; 
-            transform: scale(1.03); 
-            z-index: 10;
-        }
-        .modal-open { overflow: hidden; }
-        /* 접기/펴기 애니메이션 */
-        .dong-content { transition: max-height 0.3s ease-out; overflow: hidden; }
-        .dong-content.collapsed { max-height: 0; padding-top: 0; padding-bottom: 0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>단지 관리 시스템 (reCAPTCHA 제거)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+.unit-card{transition:.2s;border-width:2px;min-height:80px}
+.highlight{background:#fef08a!important}
+</style>
 </head>
-<body class="bg-slate-50 p-4">
-    <div class="max-w-6xl mx-auto">
-        <header class="mb-6 text-center">
-            <h1 id="complexTitle" class="text-3xl font-extrabold text-slate-800 tracking-tight">단지 로딩 중...</h1>
-        </header>
+<body class="bg-slate-50 p-3">
+<div class="max-w-6xl mx-auto">
 
-        <div class="bg-white p-5 rounded-2xl shadow-lg mb-8 sticky top-4 z-40 border border-slate-200">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="searchInput" placeholder="이름, 호수, 연락처 검색..." 
-                       class="flex-1 border-2 border-slate-100 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all">
-                
-                <div class="flex flex-wrap gap-2 justify-center">
-                    <button onclick="addSingleUnit()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md transition">호 추가</button>
-                    <button onclick="addDongPrompt()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md transition">동 추가</button>
-                    <label class="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded-lg text-sm font-bold cursor-pointer shadow-md transition">
-                        엑셀 업로드
-                        <input type="file" id="excelInput" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcel(event)">
-                    </label>
-                    <button onclick="deleteDongPrompt()" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md transition">동 삭제</button>
-                </div>
-            </div>
-        </div>
+<h1 class="text-xl font-bold mb-3 text-center">단지 관리</h1>
 
-        <div id="apartmentContainer" class="grid grid-cols-1 gap-4"></div>
-    </div>
+<div class="bg-white p-3 rounded-xl shadow mb-4 sticky top-2 z-40">
+<input id="searchInput" placeholder="검색" class="w-full p-2 border rounded mb-2">
+<div class="grid grid-cols-3 gap-2">
+<button onclick="addDongUI()" class="bg-blue-500 text-white p-2 rounded text-sm">동 생성</button>
+<button onclick="addSingleUnit()" class="bg-green-500 text-white p-2 rounded text-sm">호 추가</button>
+<label class="bg-orange-500 text-white p-2 rounded text-sm text-center cursor-pointer">
+엑셀
+<input type="file" id="excelInput" class="hidden">
+</label>
+</div>
+</div>
 
-    <div id="editModal" class="fixed inset-0 bg-slate-900/60 hidden backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-3xl w-full max-w-md shadow-2xl transition-all scale-100 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="modalTitle" class="text-2xl font-black text-slate-800">정보 수정</h2>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-1">호수 이름</label>
-                    <input type="text" id="hoNameInput" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-emerald-400 transition font-bold text-emerald-600">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1">소유주 성함</label>
-                        <input type="text" id="ownerInput" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-blue-400 transition">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1">소유주 연락처</label>
-                        <input type="text" id="phoneInput" placeholder="010-0000-0000" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-purple-400 transition">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1">세입자 성함</label>
-                        <input type="text" id="tenantInput" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-orange-400 transition">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1">세입자 연락처</label>
-                        <input type="text" id="tenantPhoneInput" placeholder="010-0000-0000" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-orange-400 transition">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-1">비고 (특이사항)</label>
-                    <textarea id="memoInput" rows="2" class="w-full border-2 border-slate-100 p-2 rounded-xl outline-none focus:border-slate-400 transition"></textarea>
-                </div>
-                <div class="pt-4 border-t border-slate-100 space-y-2">
-                    <div class="flex gap-2">
-                        <button onclick="saveData()" class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition">저장하기</button>
-                        <button onclick="closeModal()" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">취소</button>
-                    </div>
-                    <button onclick="deleteSingleUnit()" class="w-full py-2 text-rose-500 text-sm font-bold hover:bg-rose-50 border border-rose-100 rounded-lg transition">호 삭제</button>
-                </div>
-            </div>
-        </div>
-    </div>
+<div id="apartmentContainer" class="grid grid-cols-2 gap-2"></div>
+</div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<!-- 동 생성 모달 -->
+<div id="dongModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center">
+<div class="bg-white p-4 rounded-xl w-80">
+<h2 class="font-bold mb-2">동 자동 생성</h2>
+<input id="dongNum" placeholder="동 (예:101)" class="w-full border p-2 mb-2">
+<input id="startFloor" placeholder="시작층" class="w-full border p-2 mb-2">
+<input id="endFloor" placeholder="끝층" class="w-full border p-2 mb-2">
+<input id="perFloor" placeholder="층당 세대수" class="w-full border p-2 mb-2">
+<div class="flex gap-2">
+<button onclick="createDong()" class="flex-1 bg-blue-600 text-white p-2">생성</button>
+<button onclick="dongModal.classList.add('hidden')" class="flex-1 bg-gray-200 p-2">취소</button>
+</div>
+</div>
+</div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
-            authDomain: "apt-member-id.firebaseapp.com",
-            projectId: "apt-member-id",
-            storageBucket: "apt-member-id.firebasestorage.app",
-            messagingSenderId: "562369347279",
-            appId: "1:562369347279:web:fe0e203bef243bbdc801ba"
-        };
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const urlParams = new URLSearchParams(window.location.search);
-        const COMPLEX_ID = urlParams.get('id') || '기본단지';
-        document.getElementById('complexTitle').innerText = `🏢 ${COMPLEX_ID} 관리 명부`;
+const firebaseConfig={apiKey:"AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",authDomain:"apt-member-id.firebaseapp.com",projectId:"apt-member-id"};
 
-        let currentTarget = { dong: '', ho: '' };
-        let collapsedStates = {}; // 각 동의 접힘 상태 저장
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
 
-        onSnapshot(doc(db, "complexes", COMPLEX_ID), (snapshot) => {
-            renderUI(snapshot.data() || {});
-        });
+const COMPLEX_ID="기본단지";
+let timer,lastSave=0;
 
-        function renderUI(data) {
-            const container = document.getElementById('apartmentContainer');
-            container.innerHTML = '';
-            const sortedDongs = Object.keys(data).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-            
-            if(sortedDongs.length === 0) {
-                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-bold">데이터가 없습니다.</div>';
-                return;
-            }
+function makeKeywords(d){return[d.owner?.toLowerCase()||'',d.phone||'',d.ho||'']}
 
-            sortedDongs.forEach(dong => {
-                const isCollapsed = collapsedStates[dong] !== false; // 기본값은 접힘 상태
-                const dongDiv = document.createElement('div');
-                dongDiv.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-2';
-                
-                const sortedHos = Object.keys(data[dong]).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-                
-                let hoHtml = '';
-                sortedHos.forEach(ho => {
-                    const info = data[dong][ho];
-                    hoHtml += `
-                        <div onclick="openModal('${dong}', '${ho}', ${JSON.stringify(info).replace(/"/g, '&quot;')})" 
-                             class="unit-card p-3 border rounded-xl cursor-pointer hover:border-blue-400 transition-all ${(info.tenant || info.owner) ? 'bg-white' : 'bg-slate-50 opacity-60'}">
-                            <div class="font-black text-slate-700 text-sm mb-1">${ho}호</div>
-                            <div class="text-[10px] truncate text-blue-600 font-bold">주: ${info.owner || '-'} (${info.phone || '-'})</div>
-                            <div class="text-[10px] truncate text-orange-600 font-bold">세: ${info.tenant || '-'} (${info.tenantPhone || '-'})</div>
-                        </div>
-                    `;
-                });
+function canSave(){
+const now=Date.now();
+if(now-lastSave<500)return false;
+lastSave=now;
+return true;
+}
 
-                dongDiv.innerHTML = `
-                    <div onclick="toggleDong('${dong}')" class="bg-slate-800 text-white px-5 py-4 font-bold flex justify-between items-center cursor-pointer hover:bg-slate-700 transition">
-                        <span class="text-lg">${dong}동 <span class="text-xs font-normal opacity-70 ml-2">${sortedHos.length} 세대</span></span>
-                        <span id="icon-${dong}">${isCollapsed ? '▼' : '▲'}</span>
-                    </div>
-                    <div id="content-${dong}" class="dong-content ${isCollapsed ? 'collapsed' : ''} p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                        ${hoHtml}
-                    </div>`;
-                container.appendChild(dongDiv);
-            });
-        }
+async function save(dong,ho,data){
+if(!canSave()) return;
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${dong}/hos/${ho}`),data);
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/allHos/${dong}_${ho}`),{...data,dong,ho,keywords:makeKeywords({...data,ho})});
+}
 
-        window.toggleDong = (dong) => {
-            const content = document.getElementById(`content-${dong}`);
-            const icon = document.getElementById(`icon-${dong}`);
-            const isNowCollapsed = !content.classList.contains('collapsed');
-            
-            collapsedStates[dong] = !isNowCollapsed;
-            content.classList.toggle('collapsed');
-            icon.innerText = isNowCollapsed ? '▼' : '▲';
-        };
+async function createDong(){
+const d=dongNum.value;
+const s=parseInt(startFloor.value);
+const e=parseInt(endFloor.value);
+const p=parseInt(perFloor.value);
 
-        window.addDongPrompt = async () => {
-            const dong = prompt("생성할 동 번호 (예: 101):"); if (!dong) return;
-            const startFloor = prompt("시작 층:", "1");
-            const endFloor = prompt("마지막 층:", "15");
-            const hoPerFloor = prompt("층당 세대 수:", "4");
-            if (!startFloor || !endFloor || !hoPerFloor) return;
-            const obj = {};
-            for (let f = parseInt(startFloor); f <= parseInt(endFloor); f++) {
-                for (let h = 1; h <= parseInt(hoPerFloor); h++) {
-                    const hoName = `${f}${h.toString().padStart(2, '0')}`;
-                    obj[hoName] = { owner: "", phone: "", tenant: "", tenantPhone: "", memo: "" };
-                }
-            }
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: obj }, { merge: true });
-        };
+for(let f=s;f<=e;f++){
+for(let h=1;h<=p;h++){
+const ho=`${f}${h.toString().padStart(2,'0')}`;
+await save(d,ho,{owner:'',tenant:'',phone:''});
+}
+}
 
-        window.addSingleUnit = async () => {
-            const dong = prompt("동 번호:"); if (!dong) return;
-            const ho = prompt("호수 이름:"); if (!ho) return;
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: { [ho]: { owner: "", phone: "", tenant: "", tenantPhone: "", memo: "" } } }, { merge: true });
-        };
+alert('생성 완료');
+dongModal.classList.add('hidden');
+loadAll();
+}
 
-        window.openModal = (dong, ho, info) => {
-            currentTarget = { dong, ho };
-            document.getElementById('hoNameInput').value = ho;
-            document.getElementById('ownerInput').value = info.owner || '';
-            document.getElementById('phoneInput').value = info.phone || '';
-            document.getElementById('tenantInput').value = info.tenant || '';
-            document.getElementById('tenantPhoneInput').value = info.tenantPhone || '';
-            document.getElementById('memoInput').value = info.memo || '';
-            document.body.classList.add('modal-open');
-            document.getElementById('editModal').classList.remove('hidden');
-        };
+async function loadAll(){
+const dongs=await getDocs(collection(db,`complexes/${COMPLEX_ID}/dongs`));
+let list=[];
+for(const d of dongs.docs){
+const hos=await getDocs(collection(db,`complexes/${COMPLEX_ID}/dongs/${d.id}/hos`));
+hos.forEach(h=>list.push({...h.data(),dong:d.id,ho:h.id}));
+}
+render(list);
+}
 
-        window.closeModal = () => {
-            document.body.classList.remove('modal-open');
-            document.getElementById('editModal').classList.add('hidden');
-        };
+function render(list){
+const el=document.getElementById('apartmentContainer');
+el.innerHTML=list.map(v=>`<div class='unit-card p-2 border rounded bg-white text-sm'>
+<div class='font-bold'>${v.dong}-${v.ho}</div>
+<div>${v.owner||'-'}</div>
+</div>`).join('');
+}
 
-        window.saveData = async () => {
-            const newHo = document.getElementById('hoNameInput').value.trim();
-            const newData = {
-                owner: document.getElementById('ownerInput').value,
-                phone: document.getElementById('phoneInput').value,
-                tenant: document.getElementById('tenantInput').value,
-                tenantPhone: document.getElementById('tenantPhoneInput').value,
-                memo: document.getElementById('memoInput').value
-            };
-            if (newHo !== currentTarget.ho) {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [newHo]: newData } }, { merge: true });
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [`${currentTarget.dong}.${currentTarget.ho}`]: deleteField() });
-            } else {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [currentTarget.ho]: newData } }, { merge: true });
-            }
-            closeModal();
-        };
+async function search(k){
+if(!k)return loadAll();
+const q=query(collection(db,`complexes/${COMPLEX_ID}/allHos`),where('keywords','array-contains',k.toLowerCase()));
+const s=await getDocs(q);
+render(s.docs.map(d=>d.data()));
+}
 
-        window.deleteDongPrompt = async () => {
-            const dong = prompt("삭제할 동 번호:");
-            if (dong && confirm(`${dong}동 전체 데이터를 삭제하시겠습니까?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: deleteField() });
-            }
-        };
+window.addDongUI=()=>dongModal.classList.remove('hidden');
+window.addSingleUnit=async()=>{const d=prompt('동');const h=prompt('호');if(d&&h)await save(d,h,{owner:'',tenant:'',phone:''});loadAll();}
 
-        window.deleteSingleUnit = async () => {
-            if (confirm(`${currentTarget.ho}호를 삭제하시겠습니까?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [`${currentTarget.dong}.${currentTarget.ho}`]: deleteField() });
-                closeModal();
-            }
-        };
+searchInput.addEventListener('input',e=>{clearTimeout(timer);timer=setTimeout(()=>search(e.target.value.trim()),300)});
 
-        document.getElementById('searchInput').addEventListener('input', function() {
-            const kw = this.value.trim().toLowerCase();
-            document.querySelectorAll('.unit-card').forEach(card => {
-                const isMatch = kw !== '' && card.innerText.toLowerCase().includes(kw);
-                card.classList.toggle('highlight', isMatch);
-                if (isMatch) {
-                    const dongId = card.parentElement.id.replace('content-', '');
-                    if (collapsedStates[dongId] !== false) toggleDong(dongId);
-                }
-            });
-        });
-    </script>
+excelInput.addEventListener('change',e=>{
+const f=e.target.files[0];const r=new FileReader();
+r.onload=async evt=>{
+const wb=XLSX.read(evt.target.result,{type:'binary'});
+const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+for(const row of rows.slice(1)){
+if(!row[0]||!row[1])continue;
+await save(String(row[0]),String(row[1]),{owner:String(row[2]||''),phone:String(row[3]||''),tenant:String(row[4]||'')});
+}
+alert('업로드 완료');loadAll();
+};
+r.readAsBinaryString(f);
+});
+
+loadAll();
+</script>
 </body>
 </html>
