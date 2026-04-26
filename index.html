@@ -3,15 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>입주민 관리 프로그램</title>
-
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon.png">
-    <meta name="theme-color" content="#778899">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    
+    <title>단지 관리 프로그램</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { -webkit-user-select: none; -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
@@ -31,10 +23,7 @@
             transition: 0.3s ease-out; z-index: 60;
         }
         .sheet.show { bottom: 0; }
-        .overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-            display: none; z-index: 50;
-        }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; z-index: 50; }
         .overlay.show { display: block; }
     </style>
 </head>
@@ -42,57 +31,53 @@
 
     <div class="p-4 bg-white shadow-sm sticky top-0 z-20">
         <div class="flex justify-between items-center mb-4">
-            <h1 id="mainTitle" class="text-xl font-extrabold text-blue-600">불러오는 중...</h1>
-            <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">4열 모드</span>
+            <h1 id="mainTitle" class="text-xl font-extrabold text-blue-600 font-mono">단지 연결 중...</h1>
+            <button onclick="location.reload()" class="text-[10px] bg-slate-100 px-2 py-1 rounded font-bold text-slate-500">새로고침</button>
         </div>
         <input id="search" placeholder="이름 / 연락처 / 호수 검색" class="w-full border-slate-200 border p-3 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         
         <div class="grid grid-cols-4 gap-2 mt-4">
             <button id="addDongBtn" class="bg-blue-600 text-white py-2 rounded-lg text-[11px] font-bold">동 추가</button>
             <button id="addHoBtn" class="bg-emerald-600 text-white py-2 rounded-lg text-[11px] font-bold">호 추가</button>
-            <label class="bg-amber-500 text-white py-2 rounded-lg text-center cursor-pointer text-[11px] font-bold">
+            <button id="deleteDongBtn" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
+            <label class="bg-amber-500 text-white py-2 rounded-lg text-center cursor-pointer text-[11px] font-bold flex items-center justify-center">
                 엑셀<input type="file" id="excelInput" class="hidden">
             </label>
-            <button id="deleteDongBtn" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
         </div>
     </div>
 
     <div class="p-4">
-        <h3 class="text-xs font-bold text-slate-400 mb-4 ml-1 tracking-wider uppercase">전체 동 목록</h3>
+        <h3 class="text-xs font-bold text-slate-400 mb-4 tracking-wider uppercase">Building List</h3>
         <div id="dongList" class="grid grid-cols-4 gap-3"></div>
     </div>
 
     <div id="hoLayer">
-        <div class="p-4 bg-white border-b sticky top-0 flex justify-between items-center shadow-sm">
+        <div class="p-4 bg-white border-b sticky top-0 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <button onclick="history.back()" class="p-2 -ml-2 text-slate-400 text-2xl">←</button>
-                <h2 id="currentDongTitle" class="font-bold text-lg text-slate-800"></h2>
+                <button onclick="history.back()" class="p-2 text-slate-400 text-2xl">←</button>
+                <h2 id="currentDongTitle" class="font-bold text-lg"></h2>
             </div>
-            <button onclick="history.back()" class="text-blue-600 font-bold text-sm">닫기</button>
         </div>
-        <div id="grid" class="p-4 grid grid-cols-2 gap-3"></div>
+        <div id="grid" class="p-4 grid grid-cols-2 gap-3 pb-24"></div>
     </div>
 
     <div id="overlay" class="overlay" onclick="history.back()"></div>
-    <div id="sheet" class="sheet p-6 shadow-2xl">
-        <div class="flex justify-between items-center mb-6">
-            <h2 id="detailTitle" class="font-bold text-xl text-slate-800"></h2>
-            <button onclick="history.back()" class="text-slate-300 text-2xl">✕</button>
-        </div>
+    <div id="sheet" class="sheet p-6">
+        <div id="detailTitle" class="font-bold text-xl mb-6 text-slate-800"></div>
         <div class="space-y-6">
-            <div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
-                <label class="text-base font-black text-blue-700 block mb-2">소유주</label>
-                <input id="ownerInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-blue-200 py-2 focus:outline-none text-lg font-bold">
-                <input id="ownerPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+            <div class="bg-blue-50/50 p-4 rounded-xl">
+                <label class="text-xs font-bold text-blue-600 block mb-1">소유주 정보</label>
+                <input id="ownerInput" placeholder="이름" class="w-full bg-transparent border-b border-blue-200 py-1 font-bold text-lg focus:outline-none">
+                <input id="ownerPhoneInput" placeholder="연락처" class="w-full bg-transparent py-1 text-sm focus:outline-none mt-1">
             </div>
-            <div class="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100">
-                <label class="text-base font-black text-emerald-700 block mb-2">세입자</label>
-                <input id="tenantInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-emerald-200 py-2 focus:outline-none text-lg font-bold">
-                <input id="tenantPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+            <div class="bg-emerald-50/50 p-4 rounded-xl">
+                <label class="text-xs font-bold text-emerald-600 block mb-1">세입자 정보</label>
+                <input id="tenantInput" placeholder="이름" class="w-full bg-transparent border-b border-emerald-200 py-1 font-bold text-lg focus:outline-none">
+                <input id="tenantPhoneInput" placeholder="연락처" class="w-full bg-transparent py-1 text-sm focus:outline-none mt-1">
             </div>
-            <div class="pt-2 flex gap-3">
-                <button id="delBtn" class="flex-1 bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold active:bg-rose-100">삭제</button>
-                <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold active:bg-blue-700">확인 완료</button>
+            <div class="flex gap-3">
+                <button id="delBtn" class="flex-1 text-rose-500 font-bold">삭제</button>
+                <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold">확인</button>
             </div>
         </div>
     </div>
@@ -109,11 +94,15 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // [핵심수정] 단지명 추출 로직: index.html 문자열 완벽 제거
-        let path = decodeURIComponent(window.location.pathname);
-        path = path.replace(/index\.html$/, ""); // 파일명 제거
-        const COMPLEX_NAME = path.replace(/^\/+|\/+$/g, "") || "기본단지"; 
-        
+        // [핵심 로직] 주소창의 경로에서 단지명을 정확하게 추출
+        function getComplexName() {
+            let path = decodeURIComponent(window.location.pathname);
+            // index.html 등 파일명 제거
+            path = path.split('/').filter(p => p && !p.includes('.html'))[0];
+            return path || "기본단지";
+        }
+
+        const COMPLEX_NAME = getComplexName();
         const COL = `complexes/${COMPLEX_NAME}/hos`;
         document.getElementById('mainTitle').innerText = COMPLEX_NAME;
 
@@ -128,21 +117,18 @@
 
         function renderDong() {
             const dongs = [...new Set(data.map(v => v.dong))].sort((a,b) => parseInt(a)-parseInt(b));
-            const dongList = document.getElementById('dongList');
-            dongList.innerHTML = dongs.map(d => {
-                const num = d.replace('동', '');
-                return `
-                <button class="bg-white border border-slate-100 rounded-2xl py-4 px-2 shadow-sm active:bg-blue-50 flex items-center justify-center" onclick="openHoLayer('${d}')">
-                    <span class="font-black text-[17px] text-slate-700 leading-none">${num}</span>
-                    <span class="font-bold text-[15px] text-slate-700 ml-0.5 leading-none">동</span>
-                </button>`;
-            }).join('');
+            document.getElementById('dongList').innerHTML = dongs.map(d => `
+                <button onclick="openHoLayer('${d}')" class="bg-white border rounded-2xl py-5 shadow-sm active:bg-blue-50">
+                    <span class="font-black text-lg text-slate-700">${d.replace('동','')}</span>
+                    <span class="text-xs text-slate-400 font-bold">동</span>
+                </button>
+            `).join('');
         }
 
         window.openHoLayer = (dong) => {
             currentDong = dong;
             document.getElementById('hoLayer').classList.add('show');
-            document.getElementById('currentDongTitle').innerText = dong.endsWith('동') ? dong : dong + '동';
+            document.getElementById('currentDongTitle').innerText = dong;
             renderHo(dong);
             history.pushState({layer: 'ho'}, '');
         };
@@ -159,44 +145,30 @@
             history.pushState({layer: 'detail'}, '');
         };
 
-        window.onpopstate = (event) => {
-            const state = event.state;
-            if (!state) {
-                document.getElementById('hoLayer').classList.remove('show');
-                document.getElementById('sheet').classList.remove('show');
-                document.getElementById('overlay').classList.remove('show');
-                currentDong = null;
-            } else if (state.layer === 'ho') {
-                document.getElementById('sheet').classList.remove('show');
-                document.getElementById('overlay').classList.remove('show');
-            }
+        window.onpopstate = (e) => {
+            document.getElementById('hoLayer').classList.toggle('show', e.state?.layer === 'ho' || e.state?.layer === 'detail');
+            document.getElementById('sheet').classList.toggle('show', e.state?.layer === 'detail');
+            document.getElementById('overlay').classList.toggle('show', e.state?.layer === 'detail');
         };
 
         function renderHo(dong) {
             const filtered = data.filter(v => v.dong === dong).sort((a,b) => parseInt(a.ho) - parseInt(b.ho));
-            const grid = document.getElementById('grid');
-            grid.innerHTML = filtered.map(v => {
-                const empty = !v.owner && !v.tenant;
-                return `
-                    <div class="unit p-4 rounded-2xl bg-white shadow-sm border border-slate-50 ${empty ? 'empty' : ''}" onclick="openDetail('${v.id}')">
-                        <div class="font-bold text-slate-800 text-sm">${v.ho}호</div>
-                        <div class="text-xs text-blue-600 font-bold mt-1 truncate">${v.owner || '공실'}</div>
-                        <div class="text-[10px] text-slate-400 truncate">${v.tenant || ''}</div>
-                    </div>`;
-            }).join('');
+            document.getElementById('grid').innerHTML = filtered.map(v => `
+                <div onclick="openDetail('${v.id}')" class="unit p-4 rounded-2xl bg-white border ${(!v.owner && !v.tenant) ? 'empty' : ''}">
+                    <div class="font-bold text-slate-800 text-sm">${v.ho}호</div>
+                    <div class="text-xs text-blue-600 font-bold mt-1 truncate">${v.owner || '공실'}</div>
+                    <div class="text-[10px] text-slate-400 truncate">${v.tenant || ''}</div>
+                </div>
+            `).join('');
         }
 
         function autoSave() {
             clearTimeout(timer);
             timer = setTimeout(async () => {
                 if (!selected) return;
-                const updated = {
-                    ...selected,
-                    owner: ownerInput.value, ownerPhone: ownerPhoneInput.value,
-                    tenant: tenantInput.value, tenantPhone: tenantPhoneInput.value
-                };
-                await setDoc(doc(db, COL, selected.id), updated);
-                Object.assign(selected, updated);
+                const update = { ...selected, owner: ownerInput.value, ownerPhone: ownerPhoneInput.value, tenant: tenantInput.value, tenantPhone: tenantPhoneInput.value };
+                await setDoc(doc(db, COL, selected.id), update);
+                Object.assign(selected, update);
                 renderHo(currentDong);
             }, 500);
         }
@@ -204,12 +176,12 @@
         [ownerInput, ownerPhoneInput, tenantInput, tenantPhoneInput].forEach(el => el.oninput = autoSave);
 
         addDongBtn.onclick = async () => {
-            let d = prompt("동 번호 (예: 101)"); if (!d) return;
-            if (!d.endsWith("동")) d += "동";
+            let d = prompt("동 번호"); if(!d) return;
+            if(!d.endsWith("동")) d += "동";
             const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수"); if(!f || !p) return;
             let [s, e] = f.includes("~") ? f.split("~").map(Number) : [1, Number(f)];
-            for (let i = s; i <= e; i++) {
-                for (let h = 1; h <= Number(p); h++) {
+            for(let i=s; i<=e; i++) {
+                for(let h=1; h<=Number(p); h++) {
                     const ho = `${i}${String(h).padStart(2, '0')}`;
                     await setDoc(doc(db, COL, `${d}_${ho}`), { id: `${d}_${ho}`, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
                 }
@@ -217,26 +189,20 @@
             load();
         };
 
-        addHoBtn.onclick = async () => {
-            let d = prompt("동 번호"); if (!d) return;
-            if (!d.endsWith("동")) d += "동";
-            const h = prompt("호수"); if (!h) return;
-            await setDoc(doc(db, COL, `${d}_${h}`), { id: `${d}_${h}`, dong: d, ho: h, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
-            load();
-        };
-
         deleteDongBtn.onclick = async () => {
-            let d = prompt("삭제할 동 번호"); if (!d) return;
-            if (!d.endsWith("동")) d += "동";
-            if(!confirm(`${d} 삭제할까요?`)) return;
-            data.filter(v => v.dong === d).forEach(async v => await deleteDoc(doc(db, COL, v.id)));
-            setTimeout(load, 1000);
+            let d = prompt("삭제할 동"); if(!d) return;
+            if(!d.endsWith("동")) d += "동";
+            if(confirm(d + "의 모든 데이터를 삭제할까요?")) {
+                data.filter(v => v.dong === d).forEach(async v => await deleteDoc(doc(db, COL, v.id)));
+                setTimeout(load, 1000);
+            }
         };
 
         delBtn.onclick = async () => {
-            if (!confirm("삭제할까요?")) return;
-            await deleteDoc(doc(db, COL, selected.id));
-            history.back(); load();
+            if(confirm("삭제할까요?")) {
+                await deleteDoc(doc(db, COL, selected.id));
+                history.back(); load();
+            }
         };
 
         load();
