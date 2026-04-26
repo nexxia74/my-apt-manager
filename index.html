@@ -15,7 +15,6 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             z-index: 10;
         }
-        /* 스크롤바 커스텀 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #60a5fa; border-radius: 4px; }
@@ -24,242 +23,31 @@
 <body class="bg-slate-50 p-4">
     <div class="max-w-6xl mx-auto">
         <header class="mb-6 text-center">
-            <h1 id="complexTitle" class="text-3xl font-extrabold text-slate-800 drop-shadow-sm">단지 정보 불러오는 중...</h1>
-            <p class="text-slate-500 mt-2 text-sm">실시간 데이터 동기화 및 엑셀 관리 시스템</p>
+            <h1 id="complexTitle" class="text-3xl font-extrabold text-slate-800">단지 정보 불러오는 중...</h1>
+            <p class="text-slate-500 mt-2 text-sm">실시간 데이터 동기화 및 세대 관리 시스템</p>
         </header>
 
         <div class="bg-white p-5 rounded-2xl shadow-lg mb-8 sticky top-4 z-40 border border-slate-200">
             <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="searchInput" placeholder="이름, 호수, 비고 검색..." 
+                <input type="text" id="searchInput" placeholder="주민 이름, 호수, 메모 검색..." 
                        class="flex-1 border-2 border-slate-100 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all">
                 
                 <div class="flex flex-wrap gap-2 justify-center">
-                    <button onclick="addSingleUnit()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-md">
+                    <button onclick="addSingleUnit()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition">
                         + 호수 추가
                     </button>
-                    <button onclick="addDongPrompt()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-md">
-                        + 동 범위 추가
+                    <button onclick="addDongPrompt()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition">
+                        + 범위 추가
                     </button>
-                    <label class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition shadow-md">
+                    <label class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer shadow-md transition">
                         📁 엑셀 업로드
                         <input type="file" id="excelInput" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcel(event)">
                     </label>
-                    <button onclick="deleteDongPrompt()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-md">
+                    <button onclick="deleteDongPrompt()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition">
                         동 삭제
                     </button>
                 </div>
             </div>
-            <div class="mt-3 flex justify-between items-center text-[11px] text-slate-400 px-1">
-                <span>* 검색 시 해당 카드가 노란색으로 강조됩니다.</span>
-                <span>엑셀: A(동), B(호), C(소유주), D(세입자)</span>
-            </div>
         </div>
 
-        <div id="apartmentContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            </div>
-    </div>
-
-    <div id="editModal" class="fixed inset-0 bg-slate-900/60 hidden backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl transform transition-all">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="modalTitle" class="text-2xl font-black text-slate-800">정보 수정</h2>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">입주자 (소유주)</label>
-                    <input type="text" id="ownerInput" placeholder="이름 입력" class="w-full border-2 border-slate-100 p-3 rounded-xl outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">세입자 및 구성원 (전체)</label>
-                    <textarea id="tenantInput" rows="4" placeholder="가족 구성원 정보를 입력하세요" class="w-full border-2 border-slate-100 p-3 rounded-xl outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition"></textarea>
-                </div>
-                
-                <div class="flex gap-3 mt-8">
-                    <button onclick="closeModal()" class="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">취소</button>
-                    <button id="saveBtn" onclick="saveData()" class="flex-[2] px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition">데이터 저장</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        // 1. Firebase 설정
-        const firebaseConfig = {
-            apiKey: "AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
-            authDomain: "apt-member-id.firebaseapp.com",
-            projectId: "apt-member-id",
-            storageBucket: "apt-member-id.firebasestorage.app",
-            messagingSenderId: "562369347279",
-            appId: "1:562369347279:web:fe0e203bef243bbdc801ba"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // 2. 단지 ID 설정
-        const urlParams = new URLSearchParams(window.location.search);
-        const COMPLEX_ID = urlParams.get('id') || '기본단지';
-        document.getElementById('complexTitle').innerText = `🏢 ${COMPLEX_ID} 관리 명부`;
-
-        let currentTarget = { dong: '', ho: '' };
-
-        // 3. 실시간 리스너
-        onSnapshot(doc(db, "complexes", COMPLEX_ID), (snapshot) => {
-            const data = snapshot.data() || {};
-            renderUI(data);
-        });
-
-        // 4. 화면 렌더링
-        function renderUI(data) {
-            const container = document.getElementById('apartmentContainer');
-            container.innerHTML = '';
-            
-            // 동 번호 숫자 정렬
-            const sortedDongs = Object.keys(data).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-            
-            if(sortedDongs.length === 0) {
-                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-medium">등록된 데이터가 없습니다.<br>상단 버튼으로 정보를 추가해 주세요.</div>';
-                return;
-            }
-
-            sortedDongs.forEach(dong => {
-                const dongDiv = document.createElement('div');
-                dongDiv.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition hover:shadow-md';
-                
-                let hoHtml = '';
-                const sortedHos = Object.keys(data[dong]).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-                
-                sortedHos.forEach(ho => {
-                    const info = data[dong][ho];
-                    const hasTenant = info.tenant && info.tenant.trim() !== "";
-                    
-                    hoHtml += `
-                        <div onclick="openModal('${dong}', '${ho}', '${info.owner || ''}', '${info.tenant || ''}')" 
-                             class="unit-card p-3 border rounded-xl cursor-pointer group hover:border-blue-400 transition-all ${hasTenant ? 'bg-orange-50/50 border-orange-100' : 'bg-blue-50/30 border-blue-100'}">
-                            <div class="font-black text-slate-700 text-sm mb-1">${ho}호</div>
-                            <div class="text-[11px] truncate text-blue-600 font-semibold">주: ${info.owner || '-'}</div>
-                            <div class="text-[11px] truncate text-orange-600 font-semibold">세: ${info.tenant || '-'}</div>
-                        </div>
-                    `;
-                });
-
-                dongDiv.innerHTML = `
-                    <div class="bg-slate-800 text-white px-4 py-2 font-bold flex justify-between items-center">
-                        <span>${dong}동</span>
-                        <span class="text-[10px] opacity-60">${sortedHos.length} 세대</span>
-                    </div>
-                    <div class="p-4 grid grid-cols-2 gap-3">
-                        ${hoHtml}
-                    </div>
-                `;
-                container.appendChild(dongDiv);
-            });
-        }
-
-        /* ---------------- 기능 함수들 ---------------- */
-
-        // 개별 호수 추가
-        window.addSingleUnit = async () => {
-            const dong = prompt("동 번호를 입력하세요 (예: 101)");
-            if (!dong) return;
-            const ho = prompt(`${dong}동에 추가할 호수를 입력하세요 (예: 201)`);
-            if (!ho) return;
-
-            await setDoc(doc(db, "complexes", COMPLEX_ID), {
-                [dong]: { [ho]: { owner: "", tenant: "" } }
-            }, { merge: true });
-        };
-
-        // 동 범위 추가 (반복문)
-        window.addDongPrompt = async () => {
-            const dongName = prompt("추가할 동 번호 (예: 101)");
-            if (!dongName) return;
-            const lastHo = prompt("몇 호까지 생성할까요? (예: 20)", "10");
-            if (!lastHo || isNaN(lastHo)) return;
-
-            const initialHo = {};
-            for(let i = 1; i <= parseInt(lastHo); i++) {
-                initialHo[i] = { owner: "", tenant: "" }; 
-            }
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: initialHo }, { merge: true });
-        };
-
-        // 엑셀 업로드 처리
-        window.handleExcel = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (evt) => {
-                const data = evt.target.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-                const updateObj = {};
-                rows.slice(1).forEach(row => {
-                    const [dong, ho, owner, tenant] = row;
-                    if (dong && ho) {
-                        if (!updateObj[dong]) updateObj[dong] = {};
-                        updateObj[dong][ho] = { owner: String(owner || ""), tenant: String(tenant || "") };
-                    }
-                });
-
-                if (Object.keys(updateObj).length > 0) {
-                    if (confirm(`${Object.keys(updateObj).length}개 동 데이터를 업데이트하시겠습니까?`)) {
-                        await setDoc(doc(db, "complexes", COMPLEX_ID), updateObj, { merge: true });
-                        alert("성공적으로 업로드되었습니다.");
-                    }
-                }
-            };
-            reader.readAsBinaryString(file);
-            e.target.value = '';
-        };
-
-        // 동 전체 삭제
-        window.deleteDongPrompt = async () => {
-            const dongName = prompt("삭제할 동 번호를 입력하세요. (경고: 해당 동의 모든 호수가 삭제됩니다)");
-            if (!dongName) return;
-            if (confirm(`${dongName}동 전체를 삭제하시겠습니까?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dongName]: deleteField() });
-            }
-        };
-
-        // 모달 제어
-        window.openModal = (dong, ho, owner, tenant) => {
-            currentTarget = { dong, ho };
-            document.getElementById('modalTitle').innerText = `${dong}동 ${ho}호 정보`;
-            document.getElementById('ownerInput').value = owner;
-            document.getElementById('tenantInput').value = tenant;
-            document.getElementById('editModal').classList.remove('hidden');
-        };
-
-        window.closeModal = () => document.getElementById('editModal').classList.add('hidden');
-
-        window.saveData = async () => {
-            const owner = document.getElementById('ownerInput').value;
-            const tenant = document.getElementById('tenantInput').value;
-            
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { 
-                [currentTarget.dong]: { [currentTarget.ho]: { owner, tenant } } 
-            }, { merge: true });
-            
-            closeModal();
-        };
-
-        // 실시간 검색
-        document.getElementById('searchInput').addEventListener('input', function() {
-            const kw = this.value.trim().toLowerCase();
-            document.querySelectorAll('.unit-card').forEach(card => {
-                const text = card.innerText.toLowerCase();
-                card.classList.toggle('highlight', kw !== '' && text.includes(kw));
-            });
-        });
-    </script>
-</body>
-</html>
+        <div
