@@ -3,139 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>단지 관리 시스템 (reCAPTCHA 제거)</title>
+<title>단지 관리 시스템 (완성형 UI)</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
 .unit-card{transition:.2s;border-width:2px;min-height:80px}
-.highlight{background:#fef08a!important}
+.empty{opacity:.4}
+.active{outline:3px solid #3b82f6}
 </style>
 </head>
-<body class="bg-slate-50 p-3">
-<div class="max-w-6xl mx-auto">
+<body class="bg-slate-100">
 
-<h1 class="text-xl font-bold mb-3 text-center">단지 관리</h1>
+<div class="flex h-screen">
 
-<div class="bg-white p-3 rounded-xl shadow mb-4 sticky top-2 z-40">
-<input id="searchInput" placeholder="검색" class="w-full p-2 border rounded mb-2">
-<div class="grid grid-cols-3 gap-2">
-<button onclick="addDongUI()" class="bg-blue-500 text-white p-2 rounded text-sm">동 생성</button>
-<button onclick="addSingleUnit()" class="bg-green-500 text-white p-2 rounded text-sm">호 추가</button>
-<label class="bg-orange-500 text-white p-2 rounded text-sm text-center cursor-pointer">
-엑셀
-<input type="file" id="excelInput" class="hidden">
-</label>
+<!-- 좌측 동 리스트 -->
+<div class="w-40 bg-white border-r overflow-y-auto" id="dongList"></div>
+
+<!-- 중앙 -->
+<div class="flex-1 flex flex-col">
+
+<!-- 상단 -->
+<div class="p-3 bg-white shadow flex gap-2">
+<input id="searchInput" placeholder="검색" class="flex-1 p-2 border rounded">
+<select id="floorFilter" class="border p-2 rounded">
+<option value="">전체층</option>
+</select>
+<button id="btnDeleteDong" class="bg-red-500 text-white px-3 rounded">동 삭제</button>
 </div>
+
+<!-- 그리드 -->
+<div id="grid" class="p-3 grid grid-cols-4 gap-2 overflow-y-auto"></div>
 </div>
 
-<div id="apartmentContainer" class="grid grid-cols-2 gap-2"></div>
-</div>
+<!-- 우측 패널 -->
+<div class="w-80 bg-white border-l p-4 hidden" id="panel">
+<h2 class="text-lg font-bold mb-3" id="panelTitle">호 정보</h2>
 
-<!-- 동 생성 모달 -->
-<div id="dongModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center">
-<div class="bg-white p-4 rounded-xl w-80">
-<h2 class="font-bold mb-2">동 자동 생성</h2>
-<input id="dongNum" placeholder="동 (예:101)" class="w-full border p-2 mb-2">
-<input id="startFloor" placeholder="시작층" class="w-full border p-2 mb-2">
-<input id="endFloor" placeholder="끝층" class="w-full border p-2 mb-2">
-<input id="perFloor" placeholder="층당 세대수" class="w-full border p-2 mb-2">
+<label class="text-xs text-gray-500">소유주</label>
+<input id="owner" class="w-full border p-2 mb-3">
+
+<label class="text-xs text-gray-500">연락처</label>
+<input id="phone" class="w-full border p-2 mb-3">
+
+<label class="text-xs text-gray-500">세입자</label>
+<textarea id="tenant" class="w-full border p-2 mb-4"></textarea>
+
 <div class="flex gap-2">
-<button onclick="createDong()" class="flex-1 bg-blue-600 text-white p-2">생성</button>
-<button onclick="dongModal.classList.add('hidden')" class="flex-1 bg-gray-200 p-2">취소</button>
+<button id="saveBtn" class="flex-1 bg-blue-600 text-white p-2 rounded">저장</button>
+<button id="deleteBtn" class="flex-1 bg-red-500 text-white p-2 rounded">삭제</button>
 </div>
 </div>
+
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const firebaseConfig={apiKey:"AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",authDomain:"apt-member-id.firebaseapp.com",projectId:"apt-member-id"};
-
-const app=initializeApp(firebaseConfig);
+const app=initializeApp({apiKey:"AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",authDomain:"apt-member-id.firebaseapp.com",projectId:"apt-member-id"});
 const db=getFirestore(app);
 
 const COMPLEX_ID="기본단지";
-let timer,lastSave=0;
+let data=[];
+let selectedDong=null;
+let selectedUnit=null;
+let collapsed={};
 
-function makeKeywords(d){return[d.owner?.toLowerCase()||'',d.phone||'',d.ho||'']}
-
-function canSave(){
-const now=Date.now();
-if(now-lastSave<500)return false;
-lastSave=now;
-return true;
-}
-
-async function save(dong,ho,data){
-if(!canSave()) return;
-await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${dong}/hos/${ho}`),data);
-await setDoc(doc(db,`complexes/${COMPLEX_ID}/allHos/${dong}_${ho}`),{...data,dong,ho,keywords:makeKeywords({...data,ho})});
-}
-
-async function createDong(){
-const d=dongNum.value;
-const s=parseInt(startFloor.value);
-const e=parseInt(endFloor.value);
-const p=parseInt(perFloor.value);
-
-for(let f=s;f<=e;f++){
-for(let h=1;h<=p;h++){
-const ho=`${f}${h.toString().padStart(2,'0')}`;
-await save(d,ho,{owner:'',tenant:'',phone:''});
-}
-}
-
-alert('생성 완료');
-dongModal.classList.add('hidden');
-loadAll();
-}
-
-async function loadAll(){
+async function load(){
 const dongs=await getDocs(collection(db,`complexes/${COMPLEX_ID}/dongs`));
-let list=[];
+data=[];
 for(const d of dongs.docs){
 const hos=await getDocs(collection(db,`complexes/${COMPLEX_ID}/dongs/${d.id}/hos`));
-hos.forEach(h=>list.push({...h.data(),dong:d.id,ho:h.id}));
+hos.forEach(h=>data.push({...h.data(),dong:d.id,ho:h.id}));
 }
-render(list);
+renderDongList();
+renderGrid();
+renderFloorFilter();
 }
 
-function render(list){
-const el=document.getElementById('apartmentContainer');
-el.innerHTML=list.map(v=>`<div class='unit-card p-2 border rounded bg-white text-sm'>
-<div class='font-bold'>${v.dong}-${v.ho}</div>
-<div>${v.owner||'-'}</div>
+function renderDongList(){
+const el=document.getElementById('dongList');
+const dongs=[...new Set(data.map(v=>v.dong))];
+el.innerHTML=dongs.map(d=>`<div class='p-2 border-b flex justify-between cursor-pointer ${selectedDong===d?'bg-blue-100':''}'>
+<span data-d='${d}'>${d}동</span>
+<button data-t='${d}'>${collapsed[d]?'▶':'▼'}</button>
 </div>`).join('');
-}
 
-async function search(k){
-if(!k)return loadAll();
-const q=query(collection(db,`complexes/${COMPLEX_ID}/allHos`),where('keywords','array-contains',k.toLowerCase()));
-const s=await getDocs(q);
-render(s.docs.map(d=>d.data()));
-}
-
-window.addDongUI=()=>dongModal.classList.remove('hidden');
-window.addSingleUnit=async()=>{const d=prompt('동');const h=prompt('호');if(d&&h)await save(d,h,{owner:'',tenant:'',phone:''});loadAll();}
-
-searchInput.addEventListener('input',e=>{clearTimeout(timer);timer=setTimeout(()=>search(e.target.value.trim()),300)});
-
-excelInput.addEventListener('change',e=>{
-const f=e.target.files[0];const r=new FileReader();
-r.onload=async evt=>{
-const wb=XLSX.read(evt.target.result,{type:'binary'});
-const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-for(const row of rows.slice(1)){
-if(!row[0]||!row[1])continue;
-await save(String(row[0]),String(row[1]),{owner:String(row[2]||''),phone:String(row[3]||''),tenant:String(row[4]||'')});
-}
-alert('업로드 완료');loadAll();
-};
-r.readAsBinaryString(f);
+el.querySelectorAll('[data-d]').forEach(e=>{
+e.onclick=()=>{selectedDong=e.dataset.d;renderGrid();renderDongList();}
 });
 
-loadAll();
+el.querySelectorAll('[data-t]').forEach(btn=>{
+btn.onclick=(e)=>{
+e.stopPropagation();
+const d=e.target.dataset.t;
+collapsed[d]=!collapsed[d];
+renderGrid();renderDongList();
+}
+});
+}
+
+function renderFloorFilter(){
+const floors=[...new Set(data.map(v=>v.ho.substring(0,v.ho.length-2)))];
+const sel=document.getElementById('floorFilter');
+sel.innerHTML='<option value="">전체층</option>' + floors.map(f=>`<option>${f}</option>`).join('');
+}
+
+function renderGrid(){
+const el=document.getElementById('grid');
+let list=data;
+const floor=document.getElementById('floorFilter').value;
+
+if(selectedDong) list=list.filter(v=>v.dong===selectedDong);
+if(floor) list=list.filter(v=>v.ho.startsWith(floor));
+list=list.filter(v=>!collapsed[v.dong]);
+
+el.innerHTML=list.map(v=>{
+const empty=!v.owner&&!v.tenant;
+const active=selectedUnit && selectedUnit.ho===v.ho && selectedUnit.dong===v.dong;
+return `<div class='unit-card p-2 border rounded bg-white cursor-pointer ${empty?'empty':''} ${active?'active':''}' data-d='${v.dong}' data-h='${v.ho}'>
+<div class='font-bold'>${v.ho}</div>
+<div class='text-xs'>${v.owner||'-'}</div>
+</div>`;
+}).join('');
+
+el.querySelectorAll('.unit-card').forEach(c=>{
+c.onclick=()=>openPanel(c.dataset.d,c.dataset.h);
+});
+}
+
+function openPanel(d,h){
+selectedUnit=data.find(v=>v.dong===d&&v.ho===h);
+const p=document.getElementById('panel');
+p.classList.remove('hidden');
+
+panelTitle.innerText=`${d}동 ${h}호 정보 수정`;
+owner.value=selectedUnit.owner||'';
+phone.value=selectedUnit.phone||'';
+tenant.value=selectedUnit.tenant||'';
+
+renderGrid();
+}
+
+saveBtn.onclick=async()=>{
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${selectedUnit.dong}/hos/${selectedUnit.ho}`),{
+owner:owner.value,phone:phone.value,tenant:tenant.value
+});
+load();
+};
+
+deleteBtn.onclick=async()=>{
+if(!confirm('삭제하시겠습니까?')) return;
+await deleteDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${selectedUnit.dong}/hos/${selectedUnit.ho}`));
+selectedUnit=null;
+document.getElementById('panel').classList.add('hidden');
+load();
+};
+
+btnDeleteDong.onclick=async()=>{
+const d=prompt('삭제할 동');
+if(!d) return;
+const hos=await getDocs(collection(db,`complexes/${COMPLEX_ID}/dongs/${d}/hos`));
+for(const h of hos.docs) await deleteDoc(h.ref);
+load();
+};
+
+searchInput.addEventListener('input',e=>{
+const k=e.target.value.toLowerCase();
+if(!k) return renderGrid();
+const list=data.filter(v=>
+(v.owner||'').toLowerCase().includes(k)||
+(v.phone||'').includes(k)||
+v.ho.includes(k)
+);
+const el=document.getElementById('grid');
+el.innerHTML=list.map(v=>`<div class='p-2 border'>${v.dong}-${v.ho}</div>`).join('');
+});
+
+floorFilter.onchange=renderGrid;
+
+load();
 </script>
 </body>
 </html>
