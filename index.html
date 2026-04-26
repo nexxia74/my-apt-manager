@@ -12,7 +12,6 @@
         .unit:active { transform: scale(0.97); }
         .empty { opacity: 0.4; }
         
-        /* [레이어 1] 호수 목록 전체 화면 */
         #hoLayer {
             position: fixed; top: 100%; left: 0; width: 100%; height: 100%;
             background: #f8fafc; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -20,7 +19,6 @@
         }
         #hoLayer.show { transform: translateY(-100%); }
 
-        /* [레이어 2] 상세 정보 수정 시트 */
         .sheet {
             position: fixed; bottom: -100%; left: 0; width: 100%;
             background: white; border-radius: 24px 24px 0 0;
@@ -41,22 +39,22 @@
     <div class="p-4 bg-white shadow-sm sticky top-0 z-20">
         <div class="flex justify-between items-center mb-4">
             <h1 id="mainTitle" class="text-xl font-extrabold text-blue-600">단지 관리</h1>
-            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">모바일 모드</span>
+            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">모바일 최적화</span>
         </div>
         <input id="search" placeholder="이름 / 연락처 / 호수 검색" class="w-full border-slate-200 border p-3 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         
         <div class="grid grid-cols-4 gap-2 mt-4">
-            <button id="addDong" class="bg-blue-600 text-white py-2 rounded-lg text-[11px] font-bold">동 추가</button>
-            <button id="addHo" class="bg-emerald-600 text-white py-2 rounded-lg text-[11px] font-bold">호 추가</button>
+            <button id="addDongBtn" class="bg-blue-600 text-white py-2 rounded-lg text-[11px] font-bold">동 추가</button>
+            <button id="addHoBtn" class="bg-emerald-600 text-white py-2 rounded-lg text-[11px] font-bold">호 추가</button>
             <label class="bg-amber-500 text-white py-2 rounded-lg text-center cursor-pointer text-[11px] font-bold">
                 엑셀 업로드<input type="file" id="excelInput" class="hidden">
             </label>
-            <button id="deleteDong" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
+            <button id="deleteDongBtn" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
         </div>
     </div>
 
     <div class="p-4">
-        <h3 class="text-xs font-bold text-slate-400 mb-3 ml-1 tracking-wider">단지 내 전체 동 목록</h3>
+        <h3 class="text-xs font-bold text-slate-400 mb-4 ml-1 tracking-wider uppercase">전체 동 목록</h3>
         <div id="dongList" class="grid grid-cols-5 gap-3"></div>
     </div>
 
@@ -77,19 +75,19 @@
             <h2 id="detailTitle" class="font-bold text-xl text-slate-800"></h2>
             <button onclick="history.back()" class="text-slate-300 text-2xl">✕</button>
         </div>
-        <div class="space-y-5">
-            <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                <label class="text-[11px] font-bold text-blue-600">소유주</label>
-                <input id="owner" placeholder="성함 입력" class="w-full bg-transparent border-b border-blue-200 py-2 focus:outline-none text-lg">
-                <input id="ownerPhone" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+        <div class="space-y-6">
+            <div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
+                <label class="text-base font-black text-blue-700 block mb-2">소유주</label>
+                <input id="ownerInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-blue-200 py-2 focus:outline-none text-lg font-bold">
+                <input id="ownerPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
             </div>
-            <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                <label class="text-[11px] font-bold text-emerald-600">세입자</label>
-                <input id="tenant" placeholder="성함 입력" class="w-full bg-transparent border-b border-emerald-200 py-2 focus:outline-none text-lg">
-                <input id="tenantPhone" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+            <div class="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100">
+                <label class="text-base font-black text-emerald-700 block mb-2">세입자</label>
+                <input id="tenantInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-emerald-200 py-2 focus:outline-none text-lg font-bold">
+                <input id="tenantPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
             </div>
-            <div class="pt-4 flex gap-3">
-                <button id="del" class="flex-1 bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold active:bg-rose-100">세대 삭제</button>
+            <div class="pt-2 flex gap-3">
+                <button id="delBtn" class="flex-1 bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold active:bg-rose-100">삭제</button>
                 <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 active:bg-blue-700">확인 완료</button>
             </div>
         </div>
@@ -123,49 +121,59 @@
             if (currentDong) renderHo(currentDong);
         }
 
-        // 동 버튼 렌더링 (101동 형식)
         function renderDong() {
             const dongs = [...new Set(data.map(v => v.dong))].sort((a,b) => parseInt(a)-parseInt(b));
             const dongList = document.getElementById('dongList');
             dongList.innerHTML = dongs.map(d => {
-                const displayDong = d.endsWith('동') ? d : d + '동';
+                const num = d.replace('동', '');
                 return `
-                <button class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm active:bg-blue-50 text-center" onclick="openHoLayer('${d}')">
-                    <div class="font-black text-lg text-slate-700">${displayDong.replace('동','')}</div>
-                    <div class="text-[9px] text-slate-400 font-bold uppercase mt-1">동</div>
+                <button class="bg-white border border-slate-100 rounded-2xl py-4 px-1 shadow-sm active:bg-blue-50 text-center" onclick="openHoLayer('${d}')">
+                    <div class="font-black text-lg text-slate-700">${num}동</div>
                 </button>`;
             }).join('');
         }
 
+        // 1단계: 동 클릭 (전체 호수 목록 열기)
         window.openHoLayer = (dong) => {
             currentDong = dong;
             document.getElementById('hoLayer').classList.add('show');
             document.getElementById('currentDongTitle').innerText = dong.endsWith('동') ? dong : dong + '동';
             renderHo(dong);
-            history.pushState({layer: 'ho'}, '');
+            history.pushState({layer: 'ho'}, ''); // 히스토리 추가
         };
 
+        // 2단계: 호수 클릭 (상세 정보 시트 열기)
         window.openDetail = (id) => {
             selected = data.find(v => v.id === id);
             const displayDong = selected.dong.endsWith('동') ? selected.dong : selected.dong + '동';
             document.getElementById('sheet').classList.add('show');
             document.getElementById('overlay').classList.add('show');
             document.getElementById('detailTitle').innerText = `${displayDong} ${selected.ho}호`;
-            document.getElementById('owner').value = selected.owner || '';
-            document.getElementById('ownerPhone').value = selected.ownerPhone || '';
-            document.getElementById('tenant').value = selected.tenant || '';
-            document.getElementById('tenantPhone').value = selected.tenantPhone || '';
-            history.pushState({layer: 'detail'}, '');
+            
+            document.getElementById('ownerInput').value = selected.owner || '';
+            document.getElementById('ownerPhoneInput').value = selected.ownerPhone || '';
+            document.getElementById('tenantInput').value = selected.tenant || '';
+            document.getElementById('tenantPhoneInput').value = selected.tenantPhone || '';
+            
+            history.pushState({layer: 'detail'}, ''); // 상세 히스토리 한 단계 더 추가
         };
 
-        function closeAll() {
-            document.getElementById('sheet').classList.remove('show');
-            document.getElementById('overlay').classList.remove('show');
-            document.getElementById('hoLayer').classList.remove('show');
-            currentDong = null;
-        }
-
-        window.onpopstate = () => closeAll();
+        // 뒤로가기 버튼 처리 핵심 로직
+        window.onpopstate = (event) => {
+            const state = event.state;
+            
+            if (!state) {
+                // 메인 화면으로 돌아왔을 때 모든 레이어 닫기
+                document.getElementById('hoLayer').classList.remove('show');
+                document.getElementById('sheet').classList.remove('show');
+                document.getElementById('overlay').classList.remove('show');
+                currentDong = null;
+            } else if (state.layer === 'ho') {
+                // 상세 시트에서 'ho' 레이어 상태로 돌아왔을 때 (상세만 닫기)
+                document.getElementById('sheet').classList.remove('show');
+                document.getElementById('overlay').classList.remove('show');
+            }
+        };
 
         function renderHo(dong) {
             const filtered = data.filter(v => v.dong === dong).sort((a,b) => parseInt(a.ho) - parseInt(b.ho));
@@ -187,8 +195,8 @@
                 if (!selected) return;
                 const updated = {
                     ...selected,
-                    owner: owner.value, ownerPhone: ownerPhone.value,
-                    tenant: tenant.value, tenantPhone: tenantPhone.value
+                    owner: ownerInput.value, ownerPhone: ownerPhoneInput.value,
+                    tenant: tenantInput.value, tenantPhone: tenantPhoneInput.value
                 };
                 await setDoc(doc(db, COL, selected.id), updated);
                 Object.assign(selected, updated);
@@ -196,34 +204,33 @@
             }, 500);
         }
 
-        [owner, ownerPhone, tenant, tenantPhone].forEach(el => el.oninput = autoSave);
+        [ownerInput, ownerPhoneInput, tenantInput, tenantPhoneInput].forEach(el => el.oninput = autoSave);
 
-        // 동/호 관리 기능
-        addDong.onclick = async () => {
-            let d = prompt("추가할 동 번호 (숫자만 입력하세요)"); if (!d) return;
+        // 동/호 추가 및 삭제 (기존 기능 유지)
+        addDongBtn.onclick = async () => {
+            let d = prompt("동 번호만 입력 (예: 101)"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
-            const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수 (예: 4)"); if(!f || !p) return;
+            const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수"); if(!f || !p) return;
             let s, e; if (f.includes("~")) [s, e] = f.split("~").map(Number); else { s = 1; e = Number(f); }
             for (let i = s; i <= e; i++) {
                 for (let h = 1; h <= Number(p); h++) {
                     const ho = `${i}${String(h).padStart(2, '0')}`;
-                    const id = `${d}_${ho}`;
-                    await setDoc(doc(db, COL, id), { id, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
+                    await setDoc(doc(db, COL, `${d}_${ho}`), { id: `${d}_${ho}`, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
                 }
             }
             load();
         };
 
-        addHo.onclick = async () => {
-            let d = prompt("동 번호를 입력하세요"); if (!d) return;
+        addHoBtn.onclick = async () => {
+            let d = prompt("동 번호"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
-            const h = prompt("호수를 입력하세요"); if (!h) return;
+            const h = prompt("호수"); if (!h) return;
             await setDoc(doc(db, COL, `${d}_${h}`), { id: `${d}_${h}`, dong: d, ho: h, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
             load();
         };
 
-        deleteDong.onclick = async () => {
-            let d = prompt("삭제할 동 번호를 입력하세요"); if (!d) return;
+        deleteDongBtn.onclick = async () => {
+            let d = prompt("삭제할 동 번호"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
             if(!confirm(`${d}의 모든 정보를 정말 삭제할까요?`)) return;
             const list = data.filter(v => v.dong === d);
@@ -231,8 +238,8 @@
             load();
         };
 
-        del.onclick = async () => {
-            if (!confirm("이 세대 정보를 완전히 삭제할까요?")) return;
+        delBtn.onclick = async () => {
+            if (!confirm("세대 정보를 완전히 삭제할까요?")) return;
             await deleteDoc(doc(db, COL, selected.id));
             history.back(); load();
         };
