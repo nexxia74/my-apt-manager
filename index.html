@@ -3,18 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APT Manager Mobile (Final)</title>
+<title>APT Manager Mobile (Final Stable)</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
-
-<!-- ✅ 엑셀 업로드용 라이브러리 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
 <style>
 .unit{transition:.2s}
 .empty{opacity:.4}
-
-/* 📱 하단 슬라이드 패널 */
 .sheet{
 position:fixed;
 bottom:-100%;
@@ -31,46 +27,39 @@ transition:.3s;
 
 <body class="bg-slate-100">
 
-<!-- 🔍 상단 검색 + 필터 -->
+<!-- 🔍 검색 + 필터 -->
 <div class="p-3 bg-white shadow flex gap-2">
 <input id="search" placeholder="검색" class="flex-1 border p-2 rounded">
-
 <select id="floorFilter" class="border p-2 rounded">
 <option value="">층</option>
 </select>
 </div>
 
-<!-- 🔘 기능 버튼 -->
+<!-- 🔘 버튼 -->
 <div class="p-2 grid grid-cols-4 gap-2">
-
 <button id="addDong" class="bg-blue-500 text-white p-2 rounded">동 추가</button>
-
 <button id="addHo" class="bg-green-500 text-white p-2 rounded">호 추가</button>
 
-<!-- 📥 엑셀 업로드 버튼 -->
 <label class="bg-orange-500 text-white p-2 rounded text-center cursor-pointer">
 엑셀
 <input type="file" id="excelInput" class="hidden">
 </label>
 
 <button id="deleteDong" class="bg-red-500 text-white p-2 rounded">동 삭제</button>
-
 </div>
 
-<!-- 🏢 동 리스트 (가로 스크롤) -->
+<!-- 🏢 동 리스트 -->
 <div id="dongList" class="flex overflow-x-auto gap-2 p-2"></div>
 
-<!-- 📦 호수 카드 -->
+<!-- 📦 카드 -->
 <div id="grid" class="p-2 grid grid-cols-2 gap-2"></div>
 
-<!-- 📱 하단 수정 패널 -->
+<!-- 📱 패널 -->
 <div id="sheet" class="sheet p-4">
 <h2 id="title" class="font-bold mb-3 text-lg"></h2>
-
 <input id="owner" placeholder="소유주" class="w-full border p-3 mb-2 rounded">
 <input id="phone" placeholder="연락처" class="w-full border p-3 mb-2 rounded">
 <textarea id="tenant" placeholder="세입자" class="w-full border p-3 mb-3 rounded"></textarea>
-
 <button id="del" class="w-full bg-red-500 text-white p-3 rounded">삭제</button>
 </div>
 
@@ -78,7 +67,6 @@ transition:.3s;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* 🔥 Firebase 연결 */
 const app=initializeApp({
 apiKey:"AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
 authDomain:"apt-member-id.firebaseapp.com",
@@ -88,19 +76,23 @@ projectId:"apt-member-id"
 const db=getFirestore(app);
 const COL="complexes/기본단지/hos";
 
-/* 📦 상태 변수 */
 let data=[],selected=null,timer,selectedDong=null;
 
-/* 🔄 전체 데이터 불러오기 */
+/* 🔄 로드 */
 async function load(){
 const snap=await getDocs(collection(db,COL));
 data=snap.docs.map(d=>d.data());
+
+/* ⭐ 핵심 버그 해결 */
+selectedDong=null;
+floorFilter.value="";
+
 render();
 renderDong();
 renderFloor();
 }
 
-/* 🏢 동 리스트 렌더 */
+/* 🏢 동 */
 function renderDong(){
 const dongs=[...new Set(data.map(v=>v.dong))];
 
@@ -113,13 +105,13 @@ b.onclick=()=>{selectedDong=b.dataset.d;render();}
 });
 }
 
-/* 🧭 층 필터 */
+/* 🧭 층 */
 function renderFloor(){
 const f=[...new Set(data.map(v=>v.ho.slice(0,-2)))];
 floorFilter.innerHTML='<option value="">층</option>'+f.map(x=>`<option>${x}</option>`).join('');
 }
 
-/* 📦 카드 렌더 */
+/* 📦 카드 */
 function render(list=data){
 let l=list;
 
@@ -141,7 +133,7 @@ c.onclick=()=>open(c.dataset.id);
 });
 }
 
-/* 🛠 하단 패널 열기 */
+/* 패널 */
 function open(id){
 selected=data.find(v=>v.id===id);
 sheet.classList.add('show');
@@ -152,10 +144,9 @@ phone.value=selected.phone||'';
 tenant.value=selected.tenant||'';
 }
 
-/* ⚡ 자동 저장 */
+/* 자동저장 */
 function autoSave(){
 clearTimeout(timer);
-
 timer=setTimeout(async()=>{
 if(!selected)return;
 
@@ -174,40 +165,36 @@ owner.oninput=autoSave;
 phone.oninput=autoSave;
 tenant.oninput=autoSave;
 
-/* ❌ 세대 삭제 */
+/* 삭제 */
 del.onclick=async()=>{
 if(!confirm("삭제?"))return;
-
 await deleteDoc(doc(db,COL,selected.id));
 sheet.classList.remove('show');
 load();
 };
 
-/* ➕ 동 생성 */
+/* 동 생성 */
 addDong.onclick=async()=>{
 const d=prompt("동");
-const f=prompt("층수 (예:1~10)");
-const p=prompt("층당 세대");
+if(!d) return;
 
-const [s,e]=f.split('~').map(Number);
-
-for(let i=s;i<=e;i++){
-for(let h=1;h<=p;h++){
-const ho=`${i}${String(h).padStart(2,'0')}`;
-const id=`${d}_${ho}`;
+/* 최소 1세대 생성 */
+const id=`${d}_101`;
 
 await setDoc(doc(db,COL,id),{
-id,dong:d,ho,
+id,dong:d,ho:"101",
 owner:"",phone:"",tenant:""
 });
-}}
+
+selectedDong=null;
 load();
 };
 
-/* ➕ 호 추가 */
+/* 호 생성 */
 addHo.onclick=async()=>{
 const d=prompt("동");
 const h=prompt("호");
+if(!d||!h) return;
 
 const id=`${d}_${h}`;
 
@@ -216,12 +203,14 @@ id,dong:d,ho:h,
 owner:"",phone:"",tenant:""
 });
 
+selectedDong=null;
 load();
 };
 
-/* 🗑 동 전체 삭제 */
+/* 동 삭제 */
 deleteDong.onclick=async()=>{
 const d=prompt("삭제할 동");
+if(!d) return;
 
 const list=data.filter(v=>v.dong===d);
 
@@ -229,10 +218,11 @@ for(const v of list){
 await deleteDoc(doc(db,COL,v.id));
 }
 
+selectedDong=null;
 load();
 };
 
-/* 📥 엑셀 업로드 */
+/* 📥 엑셀 */
 excelInput.addEventListener('change', e=>{
 const file=e.target.files[0];
 if(!file) return;
@@ -242,13 +232,11 @@ const reader=new FileReader();
 reader.onload=async evt=>{
 const workbook=XLSX.read(evt.target.result,{type:'binary'});
 
-/* 첫 시트 읽기 */
 const rows=XLSX.utils.sheet_to_json(
 workbook.Sheets[workbook.SheetNames[0]],
 {header:1}
 );
 
-/* 2번째 줄부터 데이터 처리 */
 for(const row of rows.slice(1)){
 if(!row[0]||!row[1]) continue;
 
@@ -256,7 +244,6 @@ const d=String(row[0]);
 const h=String(row[1]);
 const id=`${d}_${h}`;
 
-/* Firestore 저장 */
 await setDoc(doc(db,COL,id),{
 id,
 dong:d,
@@ -271,14 +258,12 @@ alert("엑셀 업로드 완료");
 load();
 };
 
-/* 파일 읽기 시작 */
 reader.readAsBinaryString(file);
 });
 
-/* 🔍 검색 */
+/* 검색 */
 search.oninput=e=>{
 const k=e.target.value.toLowerCase();
-
 if(!k) return render();
 
 render(data.filter(v=>
@@ -290,7 +275,6 @@ v.ho.includes(k)
 
 floorFilter.onchange=render;
 
-/* 최초 실행 */
 load();
 </script>
 
