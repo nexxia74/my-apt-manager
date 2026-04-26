@@ -6,32 +6,30 @@
     <title>아파트 관리 매니저</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 모바일 환경 설정: 텍스트 선택 방지 및 터치 하이라이트 제거 */
+        /* 기본 설정: 모바일 터치 최적화 */
         body { -webkit-user-select: none; -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
-        
-        /* 호수 카드 애니메이션 효과 */
         .unit { transition: transform 0.1s; cursor: pointer; }
-        .unit:active { transform: scale(0.97); } /* 터치 시 살짝 눌리는 효과 */
-        .empty { opacity: 0.4; } /* 정보가 없는 호수는 반투명하게 표시 */
+        .unit:active { transform: scale(0.97); }
+        .empty { opacity: 0.4; }
         
-        /* [레이어 1] 호수 목록 전체 화면 레이어 설정 */
+        /* [레이어 1] 호수 목록 (전체 화면 슬라이드) */
         #hoLayer {
             position: fixed; top: 100%; left: 0; width: 100%; height: 100%;
             background: #f8fafc; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 40; overflow-y: auto;
         }
-        #hoLayer.show { transform: translateY(-100%); } /* 아래에서 위로 슬라이드 업 */
+        #hoLayer.show { transform: translateY(-100%); }
 
-        /* [레이어 2] 상세 정보 하단 시트 설정 */
+        /* [레이어 2] 상세 정보 (하단 시트) */
         .sheet {
             position: fixed; bottom: -100%; left: 0; width: 100%;
             background: white; border-radius: 24px 24px 0 0;
             box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
             transition: 0.3s ease-out; z-index: 60;
         }
-        .sheet.show { bottom: 0; } /* 아래에서 위로 살짝 올라옴 */
+        .sheet.show { bottom: 0; }
 
-        /* 시트 활성화 시 배경을 어둡게 만드는 오버레이 */
+        /* 시트 배경 오버레이 */
         .overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.4);
             display: none; z-index: 50;
@@ -44,7 +42,7 @@
     <div class="p-4 bg-white shadow-sm sticky top-0 z-20">
         <div class="flex justify-between items-center mb-4">
             <h1 id="mainTitle" class="text-xl font-extrabold text-blue-600">단지 관리</h1>
-            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">모바일 최적화</span>
+            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">4열 배치 모드</span>
         </div>
         <input id="search" placeholder="이름 / 연락처 / 호수 검색" class="w-full border-slate-200 border p-3 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
         
@@ -52,7 +50,7 @@
             <button id="addDongBtn" class="bg-blue-600 text-white py-2 rounded-lg text-[11px] font-bold">동 추가</button>
             <button id="addHoBtn" class="bg-emerald-600 text-white py-2 rounded-lg text-[11px] font-bold">호 추가</button>
             <label class="bg-amber-500 text-white py-2 rounded-lg text-center cursor-pointer text-[11px] font-bold">
-                엑셀 업로드<input type="file" id="excelInput" class="hidden">
+                엑셀<input type="file" id="excelInput" class="hidden">
             </label>
             <button id="deleteDongBtn" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
         </div>
@@ -60,8 +58,7 @@
 
     <div class="p-4">
         <h3 class="text-xs font-bold text-slate-400 mb-4 ml-1 tracking-wider uppercase">전체 동 목록</h3>
-        <div id="dongList" class="grid grid-cols-5 gap-3"></div>
-    </div>
+        <div id="dongList" class="grid grid-cols-4 gap-3"></div> </div>
 
     <div id="hoLayer">
         <div class="p-4 bg-white border-b sticky top-0 flex justify-between items-center shadow-sm">
@@ -93,17 +90,16 @@
             </div>
             <div class="pt-2 flex gap-3">
                 <button id="delBtn" class="flex-1 bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold active:bg-rose-100">삭제</button>
-                <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold active:bg-blue-700">정보 확인</button>
+                <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold active:bg-blue-700">확인 완료</button>
             </div>
         </div>
     </div>
 
     <script type="module">
-        // Firebase 모듈 로드
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 사용자 정보 요약 기반 Firebase 설정
+        // Firebase 설정 (기존 정보 유지)
         const firebaseConfig = {
             apiKey: "AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
             authDomain: "apt-member-id.firebaseapp.com",
@@ -112,7 +108,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // URL 주소창에서 단지명 추출 (예: /Cheonan -> Cheonan단지)
         const pathName = decodeURIComponent(window.location.pathname.replace(/^\//, ""));
         const COMPLEX_NAME = pathName || "기본단지"; 
         const COL = `complexes/${COMPLEX_NAME}/hos`;
@@ -122,39 +117,37 @@
         let data = [], selected = null, timer;
         let currentDong = null;
 
-        // DB에서 전체 세대 데이터 가져오기
         async function load() {
             const snap = await getDocs(collection(db, COL));
             data = snap.docs.map(d => d.data());
-            renderDong(); // 동 버튼 생성
-            if (currentDong) renderHo(currentDong); // 레이어 열려있으면 호수 목록 갱신
+            renderDong();
+            if (currentDong) renderHo(currentDong);
         }
 
-        // 메인 화면 동 버튼 생성 로직 (한 줄 배치)
+        // 동 버튼 렌더링 (한 줄에 4개 배치 최적화)
         function renderDong() {
             const dongs = [...new Set(data.map(v => v.dong))].sort((a,b) => parseInt(a)-parseInt(b));
             const dongList = document.getElementById('dongList');
             dongList.innerHTML = dongs.map(d => {
                 const num = d.replace('동', '');
                 return `
-                <button class="bg-white border border-slate-100 rounded-2xl py-4 px-1 shadow-sm active:bg-blue-50 flex items-center justify-center" onclick="openHoLayer('${d}')">
+                <button class="bg-white border border-slate-100 rounded-2xl py-4 px-2 shadow-sm active:bg-blue-50 flex items-center justify-center" onclick="openHoLayer('${d}')">
                     <span class="font-black text-[17px] text-slate-700 leading-none">${num}</span>
                     <span class="font-bold text-[15px] text-slate-700 ml-0.5 leading-none">동</span>
                 </button>`;
             }).join('');
         }
 
-        // [1단계] 동 클릭 시 호수 목록 레이어 열기
+        // 호수 목록 레이어 열기 (히스토리 추가)
         window.openHoLayer = (dong) => {
             currentDong = dong;
             document.getElementById('hoLayer').classList.add('show');
             document.getElementById('currentDongTitle').innerText = dong.endsWith('동') ? dong : dong + '동';
             renderHo(dong);
-            // 브라우저 히스토리에 'ho' 레이어 상태 기록
             history.pushState({layer: 'ho'}, '');
         };
 
-        // [2단계] 호수 클릭 시 상세 정보 시트 열기
+        // 상세 시트 열기 (히스토리 추가)
         window.openDetail = (id) => {
             selected = data.find(v => v.id === id);
             const displayDong = selected.dong.endsWith('동') ? selected.dong : selected.dong + '동';
@@ -162,34 +155,28 @@
             document.getElementById('overlay').classList.add('show');
             document.getElementById('detailTitle').innerText = `${displayDong} ${selected.ho}호`;
             
-            // 시트 내 입력창에 기존 데이터 채우기
             document.getElementById('ownerInput').value = selected.owner || '';
             document.getElementById('ownerPhoneInput').value = selected.ownerPhone || '';
             document.getElementById('tenantInput').value = selected.tenant || '';
             document.getElementById('tenantPhoneInput').value = selected.tenantPhone || '';
             
-            // 브라우저 히스토리에 'detail' 레이어 상태 기록 (한 단계 더 추가)
             history.pushState({layer: 'detail'}, '');
         };
 
-        // 브라우저 뒤로가기 대응 로직 (가장 중요)
+        // 뒤로가기 시 단계별 레이어 닫기 로직
         window.onpopstate = (event) => {
             const state = event.state;
-            
             if (!state) {
-                // 히스토리가 비었으면(메인 화면) 모든 레이어 숨김
                 document.getElementById('hoLayer').classList.remove('show');
                 document.getElementById('sheet').classList.remove('show');
                 document.getElementById('overlay').classList.remove('show');
                 currentDong = null;
             } else if (state.layer === 'ho') {
-                // 상태가 'ho'이면(1단계) 상세 시트만 숨김
                 document.getElementById('sheet').classList.remove('show');
                 document.getElementById('overlay').classList.remove('show');
             }
         };
 
-        // 특정 동의 호수 카드 렌더링
         function renderHo(dong) {
             const filtered = data.filter(v => v.dong === dong).sort((a,b) => parseInt(a.ho) - parseInt(b.ho));
             const grid = document.getElementById('grid');
@@ -204,7 +191,6 @@
             }).join('');
         }
 
-        // 입력 시 자동 저장 로직 (0.5초간 입력 없으면 DB 반영)
         function autoSave() {
             clearTimeout(timer);
             timer = setTimeout(async () => {
@@ -215,31 +201,28 @@
                     tenant: tenantInput.value, tenantPhone: tenantPhoneInput.value
                 };
                 await setDoc(doc(db, COL, selected.id), updated);
-                Object.assign(selected, updated); // 로컬 데이터 갱신
-                renderHo(currentDong); // 호수 목록 화면 즉시 반영
+                Object.assign(selected, updated);
+                renderHo(currentDong);
             }, 500);
         }
 
-        // 입력창에 자동 저장 이벤트 연결
         [ownerInput, ownerPhoneInput, tenantInput, tenantPhoneInput].forEach(el => el.oninput = autoSave);
 
-        // 신규 동 일괄 추가 로직
+        // 추가/삭제 관리 로직
         addDongBtn.onclick = async () => {
-            let d = prompt("추가할 동 번호 (숫자만)"); if (!d) return;
+            let d = prompt("동 번호만 입력 (예: 101)"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
-            const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수 (예: 4)"); if(!f || !p) return;
+            const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수"); if(!f || !p) return;
             let s, e; if (f.includes("~")) [s, e] = f.split("~").map(Number); else { s = 1; e = Number(f); }
             for (let i = s; i <= e; i++) {
                 for (let h = 1; h <= Number(p); h++) {
                     const ho = `${i}${String(h).padStart(2, '0')}`;
-                    const id = `${d}_${ho}`;
-                    await setDoc(doc(db, COL, id), { id, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
+                    await setDoc(doc(db, COL, `${d}_${ho}`), { id: `${d}_${ho}`, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
                 }
             }
             load();
         };
 
-        // 개별 호 추가
         addHoBtn.onclick = async () => {
             let d = prompt("동 번호"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
@@ -248,25 +231,21 @@
             load();
         };
 
-        // 동 전체 삭제
         deleteDongBtn.onclick = async () => {
-            let d = prompt("삭제할 동 이름"); if (!d) return;
+            let d = prompt("삭제할 동 번호"); if (!d) return;
             if (!d.endsWith("동")) d += "동";
-            if(!confirm(`${d}의 모든 정보를 삭제할까요?`)) return;
+            if(!confirm(`${d}의 모든 정보를 정말 삭제할까요?`)) return;
             const list = data.filter(v => v.dong === d);
             for (const v of list) await deleteDoc(doc(db, COL, v.id));
             load();
         };
 
-        // 특정 세대 삭제
         delBtn.onclick = async () => {
-            if (!confirm("세대 정보를 삭제할까요?")) return;
+            if (!confirm("세대 정보를 완전히 삭제할까요?")) return;
             await deleteDoc(doc(db, COL, selected.id));
-            history.back(); // 상세 시트 닫기
-            load(); // 데이터 새로고침
+            history.back(); load();
         };
 
-        // 초기 데이터 로드 실행
         load();
     </script>
 </body>
