@@ -1,358 +1,268 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>입주민 관리 프로그램</title>
+
     <link rel="manifest" href="manifest.json">
-
     <link rel="apple-touch-icon" href="icon.png">
-
     <meta name="theme-color" content="#778899">
-
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="입주민 명단">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APT Manager FINAL</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 기본 설정: 모바일 터치 최적화 및 텍스트 선택 방지 */
+        body { -webkit-user-select: none; -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
+        
+        /* 호수 카드 인터랙션 */
+        .unit { transition: transform 0.1s; cursor: pointer; }
+        .unit:active { transform: scale(0.97); }
+        .empty { opacity: 0.4; } /* 정보 없는 세대 반투명 표시 */
+        
+        /* [레이어 1] 호수 목록 (아래에서 위로 슬라이드) */
+        #hoLayer {
+            position: fixed; top: 100%; left: 0; width: 100%; height: 100%;
+            background: #f8fafc; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 40; overflow-y: auto;
+        }
+        #hoLayer.show { transform: translateY(-100%); }
 
-<style>
-.unit{transition:.2s}
-.empty{opacity:.4}
+        /* [레이어 2] 상세 정보 하단 시트 */
+        .sheet {
+            position: fixed; bottom: -100%; left: 0; width: 100%;
+            background: white; border-radius: 24px 24px 0 0;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+            transition: 0.3s ease-out; z-index: 60;
+        }
+        .sheet.show { bottom: 0; }
 
-.sheet{
-position:fixed;bottom:-100%;left:0;width:100%;
-background:white;border-radius:20px 20px 0 0;
-box-shadow:0 -10px 30px rgba(0,0,0,.2);
-transition:.3s;z-index:50;
-}
-.sheet.show{bottom:0}
-
-.overlay{
-position:fixed;inset:0;
-background:rgba(0,0,0,.3);
-display:none;z-index:40;
-}
-.overlay.show{display:block}
-</style>
+        /* 배경 어둡게 처리하는 오버레이 */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            display: none; z-index: 50;
+        }
+        .overlay.show { display: block; }
+    </style>
 </head>
-
-<body class="bg-slate-100">
-
-<div class="p-3 bg-white shadow">
-<input id="search" placeholder="이름 / 연락처 / 101동-101 검색" class="w-full border p-2 rounded">
-</div>
-
-<div class="p-2 grid grid-cols-4 gap-2">
-<button id="addDong" class="bg-blue-500 text-white p-2 rounded">동 추가</button>
-<button id="addHo" class="bg-green-500 text-white p-2 rounded">호 추가</button>
-
-<label class="bg-orange-500 text-white p-2 rounded text-center cursor-pointer">
-엑셀<input type="file" id="excelInput" class="hidden">
-</label>
-
-<button id="deleteDong" class="bg-red-500 text-white p-2 rounded">동 삭제</button>
-</div>
-
-<div id="dongList" class="flex overflow-x-auto gap-2 p-2"></div>
-<div id="grid" class="p-2 grid grid-cols-2 gap-2"></div>
-
-<div id="overlay" class="overlay"></div>
-
-<div id="sheet" class="sheet p-4">
-<h2 id="title" class="font-bold mb-3 text-lg"></h2>
-
-<input id="owner" placeholder="소유주" class="w-full border p-2 mb-2">
-<input id="ownerPhone" placeholder="소유주 연락처" class="w-full border p-2 mb-2">
-
-<input id="tenant" placeholder="세입자" class="w-full border p-2 mb-2">
-<input id="tenantPhone" placeholder="세입자 연락처" class="w-full border p-2 mb-3">
-
-<button id="del" class="w-full bg-red-500 text-white p-2">삭제</button>
-</div>
-
-<script type="module">
-// 1. URL에서 단지 이름 추출
-const pathName = decodeURIComponent(window.location.pathname.replace(/^\//, ""));
-const COMPLEX_NAME = pathName || "기본단지"; 
-
-// 2. 경로 설정 (기존 "기본단지" 대신 변수 사용)
-const COL = `complexes/${COMPLEX_NAME}/hos`;
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const app=initializeApp({
-apiKey:"AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
-authDomain:"apt-member-id.firebaseapp.com",
-projectId:"apt-member-id"
-});
-
-const db=getFirestore(app);
-// URL의 경로(pathname)를 가져와서 단지 이름으로 사용 (예: /행복마을 -> 행복마을)
-const pathName = decodeURIComponent(window.location.pathname.replace(/^\//, ""));
-const COMPLEX_NAME = pathName || "기본단지"; // 아무것도 안 적으면 '기본단지' 사용
-const COL = `complexes/${COMPLEX_NAME}/hos`;
-
-// 현재 어떤 단지에 접속 중인지 제목 표시 (선택 사항)
-document.title = `${COMPLEX_NAME} - APT Manager`;
-let data=[],selected=null,timer;
-let collapsed={};
-
-/* 동 정렬 */
-function sortDong(a,b){
-return parseInt(a)-parseInt(b);
-}
-
-/* 로드 */
-async function load(){
-const snap=await getDocs(collection(db,COL));
-data=snap.docs.map(d=>d.data());
-
-renderDong();
-render();
-}
-
-/* 동 리스트 */
-function renderDong(){
-const dongs=[...new Set(data.map(v=>v.dong))].sort(sortDong);
-
-dongList.innerHTML=dongs.map(d=>`
-<button class="px-3 py-1 border rounded">
-${collapsed[d]?'▶':'▼'} ${d}
-</button>
-`).join('');
-
-dongList.querySelectorAll('button').forEach((b,i)=>{
-const d=dongs[i];
-b.onclick=()=>{
-collapsed[d]=!collapsed[d];
-renderDong();
-render();
-};
-});
-}
-
-/* 카드 */
-function render(list=data){
-let l=list.filter(v=>!collapsed[v.dong]);
-
-if(!l.length){
-grid.innerHTML='<div class="col-span-2 text-center p-10 text-gray-400">데이터 없음</div>';
-return;
-}
-
-grid.innerHTML=l.map(v=>{
-const empty=!v.owner&&!v.tenant;
-
-return `
-<div class="unit p-3 border rounded bg-white ${empty?'empty':''}" data-id="${v.id}">
-<div class="font-bold">${v.dong}-${v.ho}</div>
-<div class="text-xs">${v.owner||'-'}</div>
-<div class="text-xs text-gray-500">${v.tenant||''}</div>
-</div>`;
-}).join('');
-
-grid.querySelectorAll('.unit').forEach(c=>{
-c.onclick=()=>open(c.dataset.id);
-});
-}
-
-/* 패널 */
-function open(id){
-selected=data.find(v=>v.id===id);
-
-sheet.classList.add('show');
-overlay.classList.add('show');
-
-title.innerText=`${selected.dong}-${selected.ho}`;
-owner.value=selected.owner||'';
-ownerPhone.value=selected.ownerPhone||'';
-tenant.value=selected.tenant||'';
-tenantPhone.value=selected.tenantPhone||'';
-}
-
-overlay.onclick=()=>{
-sheet.classList.remove('show');
-overlay.classList.remove('show');
-};
-
-/* 자동 저장 (최적화됨) */
-function autoSave(){
-clearTimeout(timer);
-timer=setTimeout(async()=>{
-if(!selected)return;
-
-await setDoc(doc(db,COL,selected.id),{
-...selected,
-owner:owner.value,
-ownerPhone:ownerPhone.value,
-tenant:tenant.value,
-tenantPhone:tenantPhone.value
-});
-
-/* 🔥 UI만 업데이트 */
-Object.assign(selected,{
-owner:owner.value,
-ownerPhone:ownerPhone.value,
-tenant:tenant.value,
-tenantPhone:tenantPhone.value
-});
-
-render();
-},400);
-}
-
-owner.oninput=autoSave;
-ownerPhone.oninput=autoSave;
-tenant.oninput=autoSave;
-tenantPhone.oninput=autoSave;
-
-/* 삭제 */
-del.onclick=async()=>{
-if(!confirm("삭제?"))return;
-await deleteDoc(doc(db,COL,selected.id));
-sheet.classList.remove('show');
-overlay.classList.remove('show');
-load();
-};
-
-/* 동 생성 */
-addDong.onclick=async()=>{
-let d=prompt("동");
-if(!d)return;
-if(!d.endsWith("동")) d+="동";
-
-const f=prompt("층수 (예:1~10)");
-const p=prompt("층당 세대");
-
-let s,e;
-if(f.includes("~")) [s,e]=f.split("~").map(Number);
-else {s=1;e=Number(f);}
-
-for(let i=s;i<=e;i++){
-for(let h=1;h<=p;h++){
-const ho=`${i}${String(h).padStart(2,'0')}`;
-const id=`${d}_${ho}`;
-
-await setDoc(doc(db,COL,id),{
-id,dong:d,ho,
-owner:"",ownerPhone:"",
-tenant:"",tenantPhone:""
-});
-}}
-load();
-};
-
-/* 호 추가 */
-addHo.onclick=async()=>{
-let d=prompt("동");
-if(!d)return;
-if(!d.endsWith("동")) d+="동";
-
-const h=prompt("호");
-if(!h)return;
-
-const id=`${d}_${h}`;
-
-await setDoc(doc(db,COL,id),{
-id,dong:d,ho:h,
-owner:"",ownerPhone:"",
-tenant:"",tenantPhone:""
-});
-load();
-};
-
-/* 동 삭제 */
-deleteDong.onclick=async()=>{
-let d=prompt("삭제할 동");
-if(!d)return;
-if(!d.endsWith("동")) d+="동";
-
-const list=data.filter(v=>v.dong===d);
-for(const v of list){
-await deleteDoc(doc(db,COL,v.id));
-}
-load();
-};
-
-/* 엑셀 업로드 (개선됨) */
-excelInput.addEventListener('change', async e=>{
-const file=e.target.files[0];
-if(!file)return;
-
-const reader=new FileReader();
-
-reader.onload=async evt=>{
-const wb=XLSX.read(evt.target.result,{type:'binary'});
-const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-
-const existingMap={};
-data.forEach(v=>{
-existingMap[`${v.dong}_${v.ho}`]=true;
-});
-
-let overwriteAll=null;
-let overwriteCount=0;
-let skipCount=0;
-
-for(const r of rows.slice(1)){
-if(!r[0]||!r[1]) continue;
-
-let d=String(r[0]);
-if(!d.endsWith("동")) d+="동";
-
-const h=String(r[1]);
-const id=`${d}_${h}`;
-
-if(existingMap[id]){
-if(overwriteAll===null){
-overwriteAll=confirm("중복 데이터 있음\n전체 덮어쓸까?");
-}
-if(!overwriteAll){
-skipCount++;
-continue;
-}else{
-overwriteCount++;
-}
-}
-
-await setDoc(doc(db,COL,id),{
-id,dong:d,ho:h,
-owner:String(r[2]||""),
-ownerPhone:String(r[3]||""),
-tenant:String(r[4]||""),
-tenantPhone:String(r[5]||"")
-});
-}
-
-alert(`업로드 완료\n덮어쓰기: ${overwriteCount}\n건너뜀: ${skipCount}`);
-
-excelInput.value="";
-load();
-};
-
-reader.readAsBinaryString(file);
-});
-
-/* 검색 */
-search.oninput=e=>{
-const k=e.target.value.toLowerCase();
-
-if(!k) return render();
-
-render(data.filter(v=>
-v.owner?.toLowerCase().includes(k)||
-v.ownerPhone?.includes(k)||
-v.tenant?.toLowerCase().includes(k)||
-v.tenantPhone?.includes(k)||
-`${v.dong}-${v.ho}`.includes(k)
-));
-};
-
-load();
-</script>
-
+<body class="bg-slate-50 text-slate-900">
+
+    <div class="p-4 bg-white shadow-sm sticky top-0 z-20">
+        <div class="flex justify-between items-center mb-4">
+            <h1 id="mainTitle" class="text-xl font-extrabold text-blue-600">단지 관리</h1>
+            <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">4열 최적화 모드</span>
+        </div>
+        <input id="search" placeholder="이름 / 연락처 / 호수 검색" class="w-full border-slate-200 border p-3 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+        
+        <div class="grid grid-cols-4 gap-2 mt-4">
+            <button id="addDongBtn" class="bg-blue-600 text-white py-2 rounded-lg text-[11px] font-bold">동 추가</button>
+            <button id="addHoBtn" class="bg-emerald-600 text-white py-2 rounded-lg text-[11px] font-bold">호 추가</button>
+            <label class="bg-amber-500 text-white py-2 rounded-lg text-center cursor-pointer text-[11px] font-bold">
+                엑셀 업로드<input type="file" id="excelInput" class="hidden">
+            </label>
+            <button id="deleteDongBtn" class="bg-rose-500 text-white py-2 rounded-lg text-[11px] font-bold">동 삭제</button>
+        </div>
+    </div>
+
+    <div class="p-4">
+        <h3 class="text-xs font-bold text-slate-400 mb-4 ml-1 tracking-wider uppercase">전체 동 목록</h3>
+        <div id="dongList" class="grid grid-cols-4 gap-3"></div>
+    </div>
+
+    <div id="hoLayer">
+        <div class="p-4 bg-white border-b sticky top-0 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-2">
+                <button onclick="history.back()" class="p-2 -ml-2 text-slate-400 text-2xl">←</button>
+                <h2 id="currentDongTitle" class="font-bold text-lg text-slate-800"></h2>
+            </div>
+            <button onclick="history.back()" class="text-blue-600 font-bold text-sm">닫기</button>
+        </div>
+        <div id="grid" class="p-4 grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="history.back()"></div>
+    <div id="sheet" class="sheet p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="detailTitle" class="font-bold text-xl text-slate-800"></h2>
+            <button onclick="history.back()" class="text-slate-300 text-2xl">✕</button>
+        </div>
+        <div class="space-y-6">
+            <div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
+                <label class="text-base font-black text-blue-700 block mb-2">소유주</label>
+                <input id="ownerInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-blue-200 py-2 focus:outline-none text-lg font-bold">
+                <input id="ownerPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+            </div>
+            <div class="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100">
+                <label class="text-base font-black text-emerald-700 block mb-2">세입자</label>
+                <input id="tenantInput" placeholder="성함 입력" class="w-full bg-transparent border-b border-emerald-200 py-2 focus:outline-none text-lg font-bold">
+                <input id="tenantPhoneInput" placeholder="연락처 입력" class="w-full bg-transparent py-2 focus:outline-none text-sm mt-1">
+            </div>
+            <div class="pt-2 flex gap-3">
+                <button id="delBtn" class="flex-1 bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold active:bg-rose-100">삭제</button>
+                <button onclick="history.back()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold active:bg-blue-700">확인 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyDM-aCjwJonv6mjAjwdKnyjq3tpBN_ejNQ",
+            authDomain: "apt-member-id.firebaseapp.com",
+            projectId: "apt-member-id"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 단지명 추출 로직 (URL 기반)
+        const pathName = decodeURIComponent(window.location.pathname.replace(/^\//, ""));
+        const COMPLEX_NAME = pathName || "기본단지"; 
+        const COL = `complexes/${COMPLEX_NAME}/hos`;
+
+        document.getElementById('mainTitle').innerText = COMPLEX_NAME;
+
+        let data = [], selected = null, timer;
+        let currentDong = null;
+
+        // DB 데이터 로드 및 화면 갱신
+        async function load() {
+            const snap = await getDocs(collection(db, COL));
+            data = snap.docs.map(d => d.data());
+            renderDong();
+            if (currentDong) renderHo(currentDong);
+        }
+
+        // 동 버튼 렌더링 (가독성 높은 한 줄 표시)
+        function renderDong() {
+            const dongs = [...new Set(data.map(v => v.dong))].sort((a,b) => parseInt(a)-parseInt(b));
+            const dongList = document.getElementById('dongList');
+            dongList.innerHTML = dongs.map(d => {
+                const num = d.replace('동', '');
+                return `
+                <button class="bg-white border border-slate-100 rounded-2xl py-4 px-2 shadow-sm active:bg-blue-50 flex items-center justify-center" onclick="openHoLayer('${d}')">
+                    <span class="font-black text-[17px] text-slate-700 leading-none">${num}</span>
+                    <span class="font-bold text-[15px] text-slate-700 ml-0.5 leading-none">동</span>
+                </button>`;
+            }).join('');
+        }
+
+        // 호수 목록 레이어 열기 (히스토리 1단계)
+        window.openHoLayer = (dong) => {
+            currentDong = dong;
+            document.getElementById('hoLayer').classList.add('show');
+            document.getElementById('currentDongTitle').innerText = dong.endsWith('동') ? dong : dong + '동';
+            renderHo(dong);
+            history.pushState({layer: 'ho'}, '');
+        };
+
+        // 상세 정보 시트 열기 (히스토리 2단계)
+        window.openDetail = (id) => {
+            selected = data.find(v => v.id === id);
+            const displayDong = selected.dong.endsWith('동') ? selected.dong : selected.dong + '동';
+            document.getElementById('sheet').classList.add('show');
+            document.getElementById('overlay').classList.add('show');
+            document.getElementById('detailTitle').innerText = `${displayDong} ${selected.ho}호`;
+            
+            document.getElementById('ownerInput').value = selected.owner || '';
+            document.getElementById('ownerPhoneInput').value = selected.ownerPhone || '';
+            document.getElementById('tenantInput').value = selected.tenant || '';
+            document.getElementById('tenantPhoneInput').value = selected.tenantPhone || '';
+            
+            history.pushState({layer: 'detail'}, '');
+        };
+
+        // 스마트폰 뒤로가기 대응 로직
+        window.onpopstate = (event) => {
+            const state = event.state;
+            if (!state) {
+                document.getElementById('hoLayer').classList.remove('show');
+                document.getElementById('sheet').classList.remove('show');
+                document.getElementById('overlay').classList.remove('show');
+                currentDong = null;
+            } else if (state.layer === 'ho') {
+                document.getElementById('sheet').classList.remove('show');
+                document.getElementById('overlay').classList.remove('show');
+            }
+        };
+
+        // 동별 세대 그리드 렌더링
+        function renderHo(dong) {
+            const filtered = data.filter(v => v.dong === dong).sort((a,b) => parseInt(a.ho) - parseInt(b.ho));
+            const grid = document.getElementById('grid');
+            grid.innerHTML = filtered.map(v => {
+                const empty = !v.owner && !v.tenant;
+                return `
+                    <div class="unit p-4 rounded-2xl bg-white shadow-sm border border-slate-50 ${empty ? 'empty' : ''}" onclick="openDetail('${v.id}')">
+                        <div class="font-bold text-slate-800 text-sm">${v.ho}호</div>
+                        <div class="text-xs text-blue-600 font-bold mt-1 truncate">${v.owner || '공실'}</div>
+                        <div class="text-[10px] text-slate-400 truncate">${v.tenant || ''}</div>
+                    </div>`;
+            }).join('');
+        }
+
+        // 자동 저장 기능 (0.5초 디바운스)
+        function autoSave() {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                if (!selected) return;
+                const updated = {
+                    ...selected,
+                    owner: ownerInput.value, ownerPhone: ownerPhoneInput.value,
+                    tenant: tenantInput.value, tenantPhone: tenantPhoneInput.value
+                };
+                await setDoc(doc(db, COL, selected.id), updated);
+                Object.assign(selected, updated);
+                renderHo(currentDong);
+            }, 500);
+        }
+
+        [ownerInput, ownerPhoneInput, tenantInput, tenantPhoneInput].forEach(el => el.oninput = autoSave);
+
+        // 단지 관리 (동/호 추가 및 삭제)
+        addDongBtn.onclick = async () => {
+            let d = prompt("동 번호만 입력 (예: 101)"); if (!d) return;
+            if (!d.endsWith("동")) d += "동";
+            const f = prompt("층 범위 (예: 1~15)"); const p = prompt("세대수"); if(!f || !p) return;
+            let s, e; if (f.includes("~")) [s, e] = f.split("~").map(Number); else { s = 1; e = Number(f); }
+            for (let i = s; i <= e; i++) {
+                for (let h = 1; h <= Number(p); h++) {
+                    const ho = `${i}${String(h).padStart(2, '0')}`;
+                    await setDoc(doc(db, COL, `${d}_${ho}`), { id: `${d}_${ho}`, dong: d, ho, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
+                }
+            }
+            load();
+        };
+
+        addHoBtn.onclick = async () => {
+            let d = prompt("동 번호"); if (!d) return;
+            if (!d.endsWith("동")) d += "동";
+            const h = prompt("호수"); if (!h) return;
+            await setDoc(doc(db, COL, `${d}_${h}`), { id: `${d}_${h}`, dong: d, ho: h, owner: "", ownerPhone: "", tenant: "", tenantPhone: "" });
+            load();
+        };
+
+        deleteDongBtn.onclick = async () => {
+            let d = prompt("삭제할 동 번호"); if (!d) return;
+            if (!d.endsWith("동")) d += "동";
+            if(!confirm(`${d}의 모든 정보를 정말 삭제할까요?`)) return;
+            const list = data.filter(v => v.dong === d);
+            for (const v of list) await deleteDoc(doc(db, COL, v.id));
+            load();
+        };
+
+        delBtn.onclick = async () => {
+            if (!confirm("세대 정보를 완전히 삭제할까요?")) return;
+            await deleteDoc(doc(db, COL, selected.id));
+            history.back(); load();
+        };
+
+        load();
+    </script>
 </body>
 </html>
