@@ -22,11 +22,17 @@
 <div class="flex-1 flex flex-col">
 
 <!-- 상단 -->
-<div class="p-3 bg-white shadow flex gap-2">
+<div class="p-3 bg-white shadow flex gap-2 flex-wrap">
 <input id="searchInput" placeholder="검색" class="flex-1 p-2 border rounded">
 <select id="floorFilter" class="border p-2 rounded">
 <option value="">전체층</option>
 </select>
+<button id="btnAddDong" class="bg-blue-500 text-white px-3 rounded">동 추가</button>
+<button id="btnAddUnit" class="bg-green-500 text-white px-3 rounded">호 추가</button>
+<label class="bg-orange-500 text-white px-3 rounded cursor-pointer flex items-center">
+엑셀 업로드
+<input type="file" id="excelInput" class="hidden">
+</label>
 <button id="btnDeleteDong" class="bg-red-500 text-white px-3 rounded">동 삭제</button>
 </div>
 
@@ -48,7 +54,7 @@
 <textarea id="tenant" class="w-full border p-2 mb-4"></textarea>
 
 <div class="flex gap-2">
-<button id="saveBtn" class="flex-1 bg-blue-600 text-white p-2 rounded">저장</button>
+
 <button id="deleteBtn" class="flex-1 bg-red-500 text-white p-2 rounded">삭제</button>
 </div>
 </div>
@@ -144,12 +150,23 @@ tenant.value=selectedUnit.tenant||'';
 renderGrid();
 }
 
-saveBtn.onclick=async()=>{
-await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${selectedUnit.dong}/hos/${selectedUnit.ho}`),{
-owner:owner.value,phone:phone.value,tenant:tenant.value
-});
-load();
-};
+// 자동 저장 (입력 시 바로 저장)
+function autoSave(){
+  if(!selectedUnit) return;
+  clearTimeout(window._saveTimer);
+  window._saveTimer=setTimeout(async()=>{
+    await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${selectedUnit.dong}/hos/${selectedUnit.ho}`),{
+      owner:owner.value,
+      phone:phone.value,
+      tenant:tenant.value
+    });
+    load();
+  },500);
+}
+
+owner.addEventListener('input',autoSave);
+phone.addEventListener('input',autoSave);
+tenant.addEventListener('input',autoSave);
 
 deleteBtn.onclick=async()=>{
 if(!confirm('삭제하시겠습니까?')) return;
@@ -158,6 +175,53 @@ selectedUnit=null;
 document.getElementById('panel').classList.add('hidden');
 load();
 };
+
+// 동 추가
+btnAddDong.onclick=async()=>{
+const d=prompt('생성할 동');
+if(!d) return;
+const floors=prompt('층수 (예:1~15)');
+const per=prompt('층당 세대수');
+if(!floors||!per) return;
+const [s,e]=floors.split('~').map(Number);
+for(let f=s;f<=e;f++){
+for(let h=1;h<=Number(per);h++){
+const ho=`${f}${h.toString().padStart(2,'0')}`;
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${d}/hos/${ho}`),{owner:'',phone:'',tenant:''});
+}
+}
+load();
+};
+
+// 호 추가
+btnAddUnit.onclick=async()=>{
+const d=prompt('동');
+const h=prompt('호');
+if(!d||!h) return;
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${d}/hos/${h}`),{owner:'',phone:'',tenant:''});
+load();
+};
+
+// 엑셀 업로드
+excelInput.addEventListener('change',e=>{
+const f=e.target.files[0];
+const r=new FileReader();
+r.onload=async evt=>{
+const wb=XLSX.read(evt.target.result,{type:'binary'});
+const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+for(const row of rows.slice(1)){
+if(!row[0]||!row[1]) continue;
+await setDoc(doc(db,`complexes/${COMPLEX_ID}/dongs/${row[0]}/hos/${row[1]}`),{
+owner:String(row[2]||''),
+phone:String(row[3]||''),
+tenant:String(row[4]||'')
+});
+}
+alert('업로드 완료');
+load();
+};
+r.readAsBinaryString(f);
+});
 
 btnDeleteDong.onclick=async()=>{
 const d=prompt('삭제할 동');
