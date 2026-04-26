@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APT Manager Mobile (Final Stable)</title>
+<title>APT Manager Final Pro</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -27,9 +27,9 @@ transition:.3s;
 
 <body class="bg-slate-100">
 
-<!-- 🔍 검색 + 필터 -->
+<!-- 🔍 검색 -->
 <div class="p-3 bg-white shadow flex gap-2">
-<input id="search" placeholder="검색" class="flex-1 border p-2 rounded">
+<input id="search" placeholder="이름 / 연락처 / 호 검색" class="flex-1 border p-2 rounded">
 <select id="floorFilter" class="border p-2 rounded">
 <option value="">층</option>
 </select>
@@ -48,7 +48,7 @@ transition:.3s;
 <button id="deleteDong" class="bg-red-500 text-white p-2 rounded">동 삭제</button>
 </div>
 
-<!-- 🏢 동 리스트 -->
+<!-- 🏢 동 -->
 <div id="dongList" class="flex overflow-x-auto gap-2 p-2"></div>
 
 <!-- 📦 카드 -->
@@ -57,9 +57,13 @@ transition:.3s;
 <!-- 📱 패널 -->
 <div id="sheet" class="sheet p-4">
 <h2 id="title" class="font-bold mb-3 text-lg"></h2>
+
 <input id="owner" placeholder="소유주" class="w-full border p-3 mb-2 rounded">
-<input id="phone" placeholder="연락처" class="w-full border p-3 mb-2 rounded">
-<textarea id="tenant" placeholder="세입자" class="w-full border p-3 mb-3 rounded"></textarea>
+<input id="ownerPhone" placeholder="소유주 연락처" class="w-full border p-3 mb-2 rounded">
+
+<input id="tenant" placeholder="세입자" class="w-full border p-3 mb-2 rounded">
+<input id="tenantPhone" placeholder="세입자 연락처" class="w-full border p-3 mb-3 rounded">
+
 <button id="del" class="w-full bg-red-500 text-white p-3 rounded">삭제</button>
 </div>
 
@@ -78,12 +82,11 @@ const COL="complexes/기본단지/hos";
 
 let data=[],selected=null,timer,selectedDong=null;
 
-/* 🔄 로드 */
+/* 로드 */
 async function load(){
 const snap=await getDocs(collection(db,COL));
 data=snap.docs.map(d=>d.data());
 
-/* ⭐ 핵심 버그 해결 */
 selectedDong=null;
 floorFilter.value="";
 
@@ -92,7 +95,7 @@ renderDong();
 renderFloor();
 }
 
-/* 🏢 동 */
+/* 동 */
 function renderDong(){
 const dongs=[...new Set(data.map(v=>v.dong))];
 
@@ -105,13 +108,13 @@ b.onclick=()=>{selectedDong=b.dataset.d;render();}
 });
 }
 
-/* 🧭 층 */
+/* 층 */
 function renderFloor(){
 const f=[...new Set(data.map(v=>v.ho.slice(0,-2)))];
 floorFilter.innerHTML='<option value="">층</option>'+f.map(x=>`<option>${x}</option>`).join('');
 }
 
-/* 📦 카드 */
+/* 카드 */
 function render(list=data){
 let l=list;
 
@@ -125,6 +128,7 @@ return `
 <div class="unit p-3 border rounded bg-white ${empty?'empty':''}" data-id="${v.id}">
 <div class="font-bold">${v.ho}</div>
 <div class="text-xs">${v.owner||'-'}</div>
+<div class="text-xs text-gray-500">${v.tenant||''}</div>
 </div>`;
 }).join('');
 
@@ -140,34 +144,39 @@ sheet.classList.add('show');
 
 title.innerText=`${selected.dong}동 ${selected.ho}`;
 owner.value=selected.owner||'';
-phone.value=selected.phone||'';
+ownerPhone.value=selected.ownerPhone||'';
 tenant.value=selected.tenant||'';
+tenantPhone.value=selected.tenantPhone||'';
 }
 
-/* 자동저장 */
+/* 자동 저장 */
 function autoSave(){
 clearTimeout(timer);
+
 timer=setTimeout(async()=>{
 if(!selected)return;
 
 await setDoc(doc(db,COL,selected.id),{
 ...selected,
 owner:owner.value,
-phone:phone.value,
-tenant:tenant.value
+ownerPhone:ownerPhone.value,
+tenant:tenant.value,
+tenantPhone:tenantPhone.value
 });
 
 load();
-},500);
+},400);
 }
 
 owner.oninput=autoSave;
-phone.oninput=autoSave;
+ownerPhone.oninput=autoSave;
 tenant.oninput=autoSave;
+tenantPhone.oninput=autoSave;
 
 /* 삭제 */
 del.onclick=async()=>{
 if(!confirm("삭제?"))return;
+
 await deleteDoc(doc(db,COL,selected.id));
 sheet.classList.remove('show');
 load();
@@ -176,81 +185,90 @@ load();
 /* 동 생성 */
 addDong.onclick=async()=>{
 const d=prompt("동");
-if(!d) return;
+const f=prompt("층수 (예:1~10 또는 10)");
+const p=prompt("층당 세대");
 
-/* 최소 1세대 생성 */
-const id=`${d}_101`;
+if(!d||!f||!p) return;
+
+let s,e;
+if(f.includes("~")) [s,e]=f.split("~").map(Number);
+else {s=1;e=Number(f);}
+
+for(let i=s;i<=e;i++){
+for(let h=1;h<=p;h++){
+const ho=`${i}${String(h).padStart(2,'0')}`;
+const id=`${d}_${ho}`;
 
 await setDoc(doc(db,COL,id),{
-id,dong:d,ho:"101",
-owner:"",phone:"",tenant:""
+id,dong:d,ho,
+owner:"",ownerPhone:"",
+tenant:"",tenantPhone:""
 });
-
-selectedDong=null;
+}}
 load();
 };
 
-/* 호 생성 */
+/* 호 추가 */
 addHo.onclick=async()=>{
 const d=prompt("동");
 const h=prompt("호");
-if(!d||!h) return;
+if(!d||!h)return;
 
 const id=`${d}_${h}`;
 
 await setDoc(doc(db,COL,id),{
 id,dong:d,ho:h,
-owner:"",phone:"",tenant:""
+owner:"",ownerPhone:"",
+tenant:"",tenantPhone:""
 });
-
-selectedDong=null;
 load();
 };
 
 /* 동 삭제 */
 deleteDong.onclick=async()=>{
 const d=prompt("삭제할 동");
-if(!d) return;
+if(!d)return;
 
 const list=data.filter(v=>v.dong===d);
-
 for(const v of list){
 await deleteDoc(doc(db,COL,v.id));
 }
-
-selectedDong=null;
 load();
 };
 
-/* 📥 엑셀 */
+/* 엑셀 */
 excelInput.addEventListener('change', e=>{
 const file=e.target.files[0];
-if(!file) return;
+if(!file)return;
 
 const reader=new FileReader();
 
 reader.onload=async evt=>{
-const workbook=XLSX.read(evt.target.result,{type:'binary'});
+const wb=XLSX.read(evt.target.result,{type:'binary'});
 
 const rows=XLSX.utils.sheet_to_json(
-workbook.Sheets[workbook.SheetNames[0]],
+wb.Sheets[wb.SheetNames[0]],
 {header:1}
 );
 
-for(const row of rows.slice(1)){
-if(!row[0]||!row[1]) continue;
+/*
+엑셀 구조
+동 | 호 | 소유주 | 소유주연락처 | 세입자 | 세입자연락처
+*/
 
-const d=String(row[0]);
-const h=String(row[1]);
-const id=`${d}_${h}`;
+for(const r of rows.slice(1)){
+if(!r[0]||!r[1])continue;
+
+const id=`${r[0]}_${r[1]}`;
 
 await setDoc(doc(db,COL,id),{
 id,
-dong:d,
-ho:h,
-owner:String(row[2]||""),
-phone:String(row[3]||""),
-tenant:String(row[4]||"")
+dong:String(r[0]),
+ho:String(r[1]),
+owner:String(r[2]||""),
+ownerPhone:String(r[3]||""),
+tenant:String(r[4]||""),
+tenantPhone:String(r[5]||"")
 });
 }
 
@@ -264,11 +282,14 @@ reader.readAsBinaryString(file);
 /* 검색 */
 search.oninput=e=>{
 const k=e.target.value.toLowerCase();
-if(!k) return render();
+
+if(!k)return render();
 
 render(data.filter(v=>
 v.owner?.toLowerCase().includes(k)||
-v.phone?.includes(k)||
+v.ownerPhone?.includes(k)||
+v.tenant?.toLowerCase().includes(k)||
+v.tenantPhone?.includes(k)||
 v.ho.includes(k)
 ));
 };
