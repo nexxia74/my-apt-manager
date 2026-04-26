@@ -109,7 +109,7 @@
             const sortedDongs = Object.keys(data).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             
             if(sortedDongs.length === 0) {
-                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-bold">데이터가 없습니다.</div>';
+                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-bold">데이터가 없습니다. [동 추가]를 눌러보세요.</div>';
                 return;
             }
 
@@ -137,19 +137,40 @@
             });
         }
 
+        // 동 추가 (층 구분 기능 포함)
         window.addDongPrompt = async () => {
-            const dong = prompt("동 번호:"); if (!dong) return;
-            const prefix = prompt("호수 규칙 (예: 10 입력 시 101, 102...):", "10");
-            const count = prompt("세대 수:", "10");
-            if (!count || isNaN(count)) return;
+            const dong = prompt("생성할 동 번호 (예: 101):");
+            if (!dong) return;
+            
+            const startFloor = prompt("시작 층 (예: 1):", "1");
+            if (!startFloor) return;
+            
+            const endFloor = prompt("마지막 층 (예: 10):", "10");
+            if (!endFloor) return;
+            
+            const hoPerFloor = prompt("층당 세대 수 (예: 4):", "4");
+            if (!hoPerFloor) return;
+            
             const obj = {};
-            for(let i=1; i<=parseInt(count); i++) obj[`${prefix}${i}`] = { owner: "", tenant: "", phone: "" };
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: obj }, { merge: true });
+            for(let f = parseInt(startFloor); f <= parseInt(endFloor); f++) {
+                for(let h = 1; h <= parseInt(hoPerFloor); h++) {
+                    // 호수 생성 규칙: 층(f) + 호수(h, 두자리 포맷) -> 101, 102, 1001 등
+                    const hoName = `${f}${h.toString().padStart(2, '0')}`;
+                    obj[hoName] = { owner: "", tenant: "", phone: "" };
+                }
+            }
+            
+            try {
+                await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: obj }, { merge: true });
+                alert(`${dong}동 (${startFloor}층~${endFloor}층, 각 ${hoPerFloor}세대) 생성이 완료되었습니다.`);
+            } catch (e) {
+                alert("추가 실패: " + e.message);
+            }
         };
 
         window.addSingleUnit = async () => {
             const dong = prompt("동 번호:"); if (!dong) return;
-            const ho = prompt("호수 이름:"); if (!ho) return;
+            const ho = prompt("호수 이름 (예: 101):"); if (!ho) return;
             await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: { [ho]: { owner: "", tenant: "", phone: "" } } }, { merge: true });
         };
 
@@ -158,67 +179,4 @@
             const reader = new FileReader();
             reader.onload = async (evt) => {
                 const workbook = XLSX.read(evt.target.result, { type: 'binary' });
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-                const updateObj = {};
-                rows.slice(1).forEach(r => {
-                    if (r[0] && r[1]) {
-                        if (!updateObj[r[0]]) updateObj[r[0]] = {};
-                        updateObj[r[0]][r[1]] = { owner: String(r[2]||""), phone: String(r[3]||""), tenant: String(r[4]||"") };
-                    }
-                });
-                await setDoc(doc(db, "complexes", COMPLEX_ID), updateObj, { merge: true });
-                alert("업로드 완료 (A:동, B:호, C:주인, D:연락처, E:세입자)");
-            };
-            reader.readAsBinaryString(file);
-        };
-
-        window.deleteDongPrompt = async () => {
-            const dong = prompt("삭제할 동 번호:");
-            if (dong && confirm(`${dong}동 전체를 삭제할까요?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: deleteField() });
-            }
-        };
-
-        window.deleteSingleUnit = async () => {
-            if (confirm(`${currentTarget.ho}호를 삭제하시겠습니까?`)) {
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [`${currentTarget.dong}.${currentTarget.ho}`]: deleteField() });
-                closeModal();
-            }
-        };
-
-        window.openModal = (dong, ho, owner, tenant, phone) => {
-            currentTarget = { dong, ho };
-            document.getElementById('hoNameInput').value = ho;
-            document.getElementById('ownerInput').value = owner;
-            document.getElementById('tenantInput').value = tenant;
-            document.getElementById('phoneInput').value = phone || '';
-            document.getElementById('editModal').classList.remove('hidden');
-        };
-        window.closeModal = () => document.getElementById('editModal').classList.add('hidden');
-
-        window.saveData = async () => {
-            const newHo = document.getElementById('hoNameInput').value.trim();
-            const owner = document.getElementById('ownerInput').value;
-            const tenant = document.getElementById('tenantInput').value;
-            const phone = document.getElementById('phoneInput').value;
-
-            const newData = { owner, tenant, phone };
-
-            if (newHo !== currentTarget.ho) {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [newHo]: newData } }, { merge: true });
-                await updateDoc(doc(db, "complexes", COMPLEX_ID), { [`${currentTarget.dong}.${currentTarget.ho}`]: deleteField() });
-            } else {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [currentTarget.ho]: newData } }, { merge: true });
-            }
-            closeModal();
-        };
-
-        document.getElementById('searchInput').addEventListener('input', function() {
-            const kw = this.value.trim().toLowerCase();
-            document.querySelectorAll('.unit-card').forEach(card => {
-                card.classList.toggle('highlight', kw !== '' && card.innerText.toLowerCase().includes(kw));
-            });
-        });
-    </script>
-</body>
-</html>
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.Sheet
