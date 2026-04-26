@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>APT Manager FINAL STABLE</title>
+<title>APT Manager FINAL</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -31,12 +31,10 @@ display:none;z-index:40;
 
 <body class="bg-slate-100">
 
-<!-- 검색 -->
 <div class="p-3 bg-white shadow">
 <input id="search" placeholder="이름 / 연락처 / 101동-101 검색" class="w-full border p-2 rounded">
 </div>
 
-<!-- 버튼 -->
 <div class="p-2 grid grid-cols-4 gap-2">
 <button id="addDong" class="bg-blue-500 text-white p-2 rounded">동 추가</button>
 <button id="addHo" class="bg-green-500 text-white p-2 rounded">호 추가</button>
@@ -48,16 +46,11 @@ display:none;z-index:40;
 <button id="deleteDong" class="bg-red-500 text-white p-2 rounded">동 삭제</button>
 </div>
 
-<!-- 동 리스트 -->
 <div id="dongList" class="flex overflow-x-auto gap-2 p-2"></div>
-
-<!-- 카드 -->
 <div id="grid" class="p-2 grid grid-cols-2 gap-2"></div>
 
-<!-- 오버레이 -->
 <div id="overlay" class="overlay"></div>
 
-<!-- 패널 -->
 <div id="sheet" class="sheet p-4">
 <h2 id="title" class="font-bold mb-3 text-lg"></h2>
 
@@ -86,14 +79,12 @@ const COL="complexes/기본단지/hos";
 let data=[],selected=null,timer;
 let collapsed={};
 
-/* 🔢 동 정렬 함수 (핵심) */
+/* 동 정렬 */
 function sortDong(a,b){
-const na=parseInt(a.replace("동",""));
-const nb=parseInt(b.replace("동",""));
-return na-nb;
+return parseInt(a)-parseInt(b);
 }
 
-/* 🔄 로드 */
+/* 로드 */
 async function load(){
 const snap=await getDocs(collection(db,COL));
 data=snap.docs.map(d=>d.data());
@@ -102,7 +93,7 @@ renderDong();
 render();
 }
 
-/* 🏢 동 리스트 */
+/* 동 리스트 */
 function renderDong(){
 const dongs=[...new Set(data.map(v=>v.dong))].sort(sortDong);
 
@@ -122,9 +113,14 @@ render();
 });
 }
 
-/* 📦 카드 */
+/* 카드 */
 function render(list=data){
 let l=list.filter(v=>!collapsed[v.dong]);
+
+if(!l.length){
+grid.innerHTML='<div class="col-span-2 text-center p-10 text-gray-400">데이터 없음</div>';
+return;
+}
 
 grid.innerHTML=l.map(v=>{
 const empty=!v.owner&&!v.tenant;
@@ -142,7 +138,7 @@ c.onclick=()=>open(c.dataset.id);
 });
 }
 
-/* 📱 패널 */
+/* 패널 */
 function open(id){
 selected=data.find(v=>v.id===id);
 
@@ -156,13 +152,12 @@ tenant.value=selected.tenant||'';
 tenantPhone.value=selected.tenantPhone||'';
 }
 
-/* 닫기 */
 overlay.onclick=()=>{
 sheet.classList.remove('show');
 overlay.classList.remove('show');
 };
 
-/* 자동 저장 */
+/* 자동 저장 (최적화됨) */
 function autoSave(){
 clearTimeout(timer);
 timer=setTimeout(async()=>{
@@ -176,7 +171,15 @@ tenant:tenant.value,
 tenantPhone:tenantPhone.value
 });
 
-load();
+/* 🔥 UI만 업데이트 */
+Object.assign(selected,{
+owner:owner.value,
+ownerPhone:ownerPhone.value,
+tenant:tenant.value,
+tenantPhone:tenantPhone.value
+});
+
+render();
 },400);
 }
 
@@ -194,10 +197,10 @@ overlay.classList.remove('show');
 load();
 };
 
-/* 🏢 동 생성 */
+/* 동 생성 */
 addDong.onclick=async()=>{
 let d=prompt("동");
-if(!d) return;
+if(!d)return;
 if(!d.endsWith("동")) d+="동";
 
 const f=prompt("층수 (예:1~10)");
@@ -221,14 +224,14 @@ tenant:"",tenantPhone:""
 load();
 };
 
-/* ➕ 호 추가 */
+/* 호 추가 */
 addHo.onclick=async()=>{
 let d=prompt("동");
-if(!d) return;
+if(!d)return;
 if(!d.endsWith("동")) d+="동";
 
 const h=prompt("호");
-if(!h) return;
+if(!h)return;
 
 const id=`${d}_${h}`;
 
@@ -240,43 +243,62 @@ tenant:"",tenantPhone:""
 load();
 };
 
-/* 🗑 동 삭제 */
+/* 동 삭제 */
 deleteDong.onclick=async()=>{
 let d=prompt("삭제할 동");
-if(!d) return;
+if(!d)return;
 if(!d.endsWith("동")) d+="동";
 
 const list=data.filter(v=>v.dong===d);
-
 for(const v of list){
 await deleteDoc(doc(db,COL,v.id));
 }
 load();
 };
 
-/* 📥 엑셀 업로드 */
-excelInput.addEventListener('change',e=>{
+/* 엑셀 업로드 (개선됨) */
+excelInput.addEventListener('change', async e=>{
 const file=e.target.files[0];
+if(!file)return;
+
 const reader=new FileReader();
 
 reader.onload=async evt=>{
 const wb=XLSX.read(evt.target.result,{type:'binary'});
-const rows=XLSX.utils.sheet_to_json(
-wb.Sheets[wb.SheetNames[0]],{header:1}
-);
+const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+
+const existingMap={};
+data.forEach(v=>{
+existingMap[`${v.dong}_${v.ho}`]=true;
+});
+
+let overwriteAll=null;
+let overwriteCount=0;
+let skipCount=0;
 
 for(const r of rows.slice(1)){
-if(!r[0]||!r[1])continue;
+if(!r[0]||!r[1]) continue;
 
 let d=String(r[0]);
 if(!d.endsWith("동")) d+="동";
 
-const id=`${d}_${r[1]}`;
+const h=String(r[1]);
+const id=`${d}_${h}`;
+
+if(existingMap[id]){
+if(overwriteAll===null){
+overwriteAll=confirm("중복 데이터 있음\n전체 덮어쓸까?");
+}
+if(!overwriteAll){
+skipCount++;
+continue;
+}else{
+overwriteCount++;
+}
+}
 
 await setDoc(doc(db,COL,id),{
-id,
-dong:d,
-ho:String(r[1]),
+id,dong:d,ho:h,
 owner:String(r[2]||""),
 ownerPhone:String(r[3]||""),
 tenant:String(r[4]||""),
@@ -284,14 +306,16 @@ tenantPhone:String(r[5]||"")
 });
 }
 
-alert("엑셀 업로드 완료");
+alert(`업로드 완료\n덮어쓰기: ${overwriteCount}\n건너뜀: ${skipCount}`);
+
+excelInput.value="";
 load();
 };
 
 reader.readAsBinaryString(file);
 });
 
-/* 🔍 검색 */
+/* 검색 */
 search.oninput=e=>{
 const k=e.target.value.toLowerCase();
 
@@ -302,8 +326,7 @@ v.owner?.toLowerCase().includes(k)||
 v.ownerPhone?.includes(k)||
 v.tenant?.toLowerCase().includes(k)||
 v.tenantPhone?.includes(k)||
-`${v.dong}-${v.ho}`.includes(k)||
-v.ho.includes(k)
+`${v.dong}-${v.ho}`.includes(k)
 ));
 };
 
