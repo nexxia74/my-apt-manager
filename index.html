@@ -6,6 +6,16 @@
     <title>단지 관리 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        .unit-card { transition: all 0.2s; border-width: 2px; }
+        .highlight { 
+            background-color: #fef08a !important; 
+            border-color: #f59e0b !important; 
+            transform: scale(1.05); 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+    </style>
 </head>
 <body class="bg-slate-50 p-4">
     <div class="max-w-6xl mx-auto">
@@ -15,7 +25,7 @@
 
         <div class="bg-white p-5 rounded-2xl shadow-lg mb-8 sticky top-4 z-40 border border-slate-200">
             <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="searchInput" placeholder="주민 이름, 호수 검색..." 
+                <input type="text" id="searchInput" placeholder="이름, 호수, 연락처 검색..." 
                        class="flex-1 border-2 border-slate-100 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all">
                 
                 <div class="flex flex-wrap gap-2 justify-center">
@@ -39,18 +49,22 @@
                 <h2 id="modalTitle" class="text-2xl font-black text-slate-800">정보 수정</h2>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
             </div>
-            <div class="space-y-5">
+            <div class="space-y-4">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-2">호수 이름</label>
-                    <input type="text" id="hoNameInput" class="w-full border-2 border-slate-100 p-3 rounded-xl outline-none focus:border-emerald-400 transition font-bold text-emerald-600">
+                    <label class="block text-[11px] font-bold text-slate-500 mb-1">호수 이름</label>
+                    <input type="text" id="hoNameInput" class="w-full border-2 border-slate-100 p-2.5 rounded-xl outline-none focus:border-emerald-400 transition font-bold text-emerald-600">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-2">입주자 (소유주)</label>
-                    <input type="text" id="ownerInput" class="w-full border-2 border-slate-100 p-3 rounded-xl outline-none focus:border-blue-400 transition">
+                    <label class="block text-[11px] font-bold text-slate-500 mb-1">입주자 (소유주)</label>
+                    <input type="text" id="ownerInput" class="w-full border-2 border-slate-100 p-2.5 rounded-xl outline-none focus:border-blue-400 transition">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-2">세입자 및 구성원</label>
-                    <textarea id="tenantInput" rows="3" class="w-full border-2 border-slate-100 p-3 rounded-xl outline-none focus:border-orange-400 transition"></textarea>
+                    <label class="block text-[11px] font-bold text-slate-500 mb-1">연락처</label>
+                    <input type="text" id="phoneInput" placeholder="010-0000-0000" class="w-full border-2 border-slate-100 p-2.5 rounded-xl outline-none focus:border-purple-400 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 mb-1">세입자 및 비고</label>
+                    <textarea id="tenantInput" rows="2" class="w-full border-2 border-slate-100 p-2.5 rounded-xl outline-none focus:border-orange-400 transition"></textarea>
                 </div>
                 <div class="pt-4 border-t border-slate-100 space-y-3">
                     <div class="flex gap-2">
@@ -85,13 +99,8 @@
 
         let currentTarget = { dong: '', ho: '' };
 
-        // 데이터 감시
         onSnapshot(doc(db, "complexes", COMPLEX_ID), (snapshot) => {
-            const data = snapshot.data() || {};
-            renderUI(data);
-        }, (err) => {
-            console.error("데이터 로딩 에러:", err);
-            alert("Firebase 접근 권한이 없습니다. 규칙 설정을 확인하세요.");
+            renderUI(snapshot.data() || {});
         });
 
         function renderUI(data) {
@@ -100,7 +109,7 @@
             const sortedDongs = Object.keys(data).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             
             if(sortedDongs.length === 0) {
-                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-bold">데이터가 없습니다. [동 추가]를 눌러보세요.</div>';
+                container.innerHTML = '<div class="col-span-full py-20 text-center text-slate-400 font-bold">데이터가 없습니다.</div>';
                 return;
             }
 
@@ -113,11 +122,12 @@
                 sortedHos.forEach(ho => {
                     const info = data[dong][ho];
                     hoHtml += `
-                        <div onclick="openModal('${dong}', '${ho}', '${info.owner || ''}', '${info.tenant || ''}')" 
-                             class="p-3 border rounded-xl cursor-pointer hover:border-blue-400 transition-all ${(info.tenant && info.tenant.trim() !== "") ? 'bg-orange-50/50 border-orange-100' : 'bg-blue-50/30 border-blue-100'}">
-                            <div class="font-black text-slate-700 text-sm">${ho}호</div>
+                        <div onclick="openModal('${dong}', '${ho}', '${info.owner || ''}', '${info.tenant || ''}', '${info.phone || ''}')" 
+                             class="unit-card p-3 border rounded-xl cursor-pointer hover:border-blue-400 transition-all ${(info.tenant || info.owner) ? 'bg-white' : 'bg-slate-50 opacity-60'}">
+                            <div class="font-black text-slate-700 text-sm mb-1">${ho}호</div>
                             <div class="text-[10px] truncate text-blue-600 font-bold">주: ${info.owner || '-'}</div>
-                            <div class="text-[10px] truncate text-orange-600 font-bold">세: ${info.tenant || '-'}</div>
+                            <div class="text-[10px] truncate text-purple-600 font-bold">📞 ${info.phone || '-'}</div>
+                            <div class="text-[10px] truncate text-slate-500">세: ${info.tenant || '-'}</div>
                         </div>
                     `;
                 });
@@ -127,34 +137,20 @@
             });
         }
 
-        // 동 추가
         window.addDongPrompt = async () => {
-            const dong = prompt("생성할 동 번호 (예: 101):");
-            if (!dong) return;
+            const dong = prompt("동 번호:"); if (!dong) return;
             const prefix = prompt("호수 규칙 (예: 10 입력 시 101, 102...):", "10");
             const count = prompt("세대 수:", "10");
             if (!count || isNaN(count)) return;
-            
             const obj = {};
-            for(let i=1; i<=parseInt(count); i++) {
-                obj[`${prefix}${i}`] = { owner: "", tenant: "" };
-            }
-            
-            try {
-                // setDoc에 merge: true를 사용하여 안전하게 생성
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: obj }, { merge: true });
-                console.log("동 추가 성공");
-            } catch (e) {
-                console.error("에러 발생:", e);
-                alert("추가 실패: " + e.message);
-            }
+            for(let i=1; i<=parseInt(count); i++) obj[`${prefix}${i}`] = { owner: "", tenant: "", phone: "" };
+            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: obj }, { merge: true });
         };
 
-        // 호 추가
         window.addSingleUnit = async () => {
             const dong = prompt("동 번호:"); if (!dong) return;
             const ho = prompt("호수 이름:"); if (!ho) return;
-            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: { [ho]: { owner: "", tenant: "" } } }, { merge: true });
+            await setDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: { [ho]: { owner: "", tenant: "", phone: "" } } }, { merge: true });
         };
 
         window.handleExcel = async (e) => {
@@ -167,18 +163,18 @@
                 rows.slice(1).forEach(r => {
                     if (r[0] && r[1]) {
                         if (!updateObj[r[0]]) updateObj[r[0]] = {};
-                        updateObj[r[0]][r[1]] = { owner: String(r[2]||""), tenant: String(r[3]||"") };
+                        updateObj[r[0]][r[1]] = { owner: String(r[2]||""), phone: String(r[3]||""), tenant: String(r[4]||"") };
                     }
                 });
                 await setDoc(doc(db, "complexes", COMPLEX_ID), updateObj, { merge: true });
-                alert("업로드 완료");
+                alert("업로드 완료 (A:동, B:호, C:주인, D:연락처, E:세입자)");
             };
             reader.readAsBinaryString(file);
         };
 
         window.deleteDongPrompt = async () => {
             const dong = prompt("삭제할 동 번호:");
-            if (dong && confirm(`${dong}동을 삭제할까요?`)) {
+            if (dong && confirm(`${dong}동 전체를 삭제할까요?`)) {
                 await updateDoc(doc(db, "complexes", COMPLEX_ID), { [dong]: deleteField() });
             }
         };
@@ -190,11 +186,12 @@
             }
         };
 
-        window.openModal = (dong, ho, owner, tenant) => {
+        window.openModal = (dong, ho, owner, tenant, phone) => {
             currentTarget = { dong, ho };
             document.getElementById('hoNameInput').value = ho;
             document.getElementById('ownerInput').value = owner;
             document.getElementById('tenantInput').value = tenant;
+            document.getElementById('phoneInput').value = phone || '';
             document.getElementById('editModal').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('editModal').classList.add('hidden');
@@ -203,11 +200,15 @@
             const newHo = document.getElementById('hoNameInput').value.trim();
             const owner = document.getElementById('ownerInput').value;
             const tenant = document.getElementById('tenantInput').value;
+            const phone = document.getElementById('phoneInput').value;
+
+            const newData = { owner, tenant, phone };
+
             if (newHo !== currentTarget.ho) {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [newHo]: { owner, tenant } } }, { merge: true });
+                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [newHo]: newData } }, { merge: true });
                 await updateDoc(doc(db, "complexes", COMPLEX_ID), { [`${currentTarget.dong}.${currentTarget.ho}`]: deleteField() });
             } else {
-                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [currentTarget.ho]: { owner, tenant } } }, { merge: true });
+                await setDoc(doc(db, "complexes", COMPLEX_ID), { [currentTarget.dong]: { [currentTarget.ho]: newData } }, { merge: true });
             }
             closeModal();
         };
